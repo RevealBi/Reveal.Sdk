@@ -1,8 +1,8 @@
 ---
-name: Feature request
-about: Suggest an idea for this project
+name: Feature Request
+about: Suggest an idea for the Reveal SDK
 title: ''
-labels: 'feature-request'
+labels: ':toolbox: feature-request'
 assignees: ''
 
 ---
