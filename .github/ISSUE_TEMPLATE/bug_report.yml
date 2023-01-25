@@ -1,7 +1,7 @@
 name: 🐞 Bug report
 description: Create a bug report
 title: "[BUG]: "
-labels: ["bug", "needs triage"]
+labels: ["bug", "needs-triage"]
 body:
   - type: input
     attributes:
