@@ -5,6 +5,12 @@ labels: ["bug", "needs triage"]
 body:
   - type: input
     attributes:
+      label: Company
+      description: The company which owns the Reveal SDK license.
+    validations:
+      required: true
+  - type: input
+    attributes:
       label: SDK Version
       description: Version of the Reveal SDK the bug was found.
     validations:
