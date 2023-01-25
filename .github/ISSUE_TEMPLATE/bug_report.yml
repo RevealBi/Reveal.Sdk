@@ -1,0 +1,35 @@
+name: 🐞 Bug report
+about: Create a bug report
+title: ""
+labels: ["bug", "needs triage"]
+assignees: []
+body:
+  - type: input
+    attributes:
+      label: SDK Version
+      description: Version of the Reveal SDK the bug was found.
+    validations:
+      required: true
+  - type: dropdown
+    attributes:
+      label: Client Framework
+      description: What JavaScript framework is this bug affecting?
+      options:
+        - Angular
+        - HTML/JavaScript
+        - React
+        - ASP.NET Web App
+        - Other
+    validations:
+      required: true
+  - type: dropdown
+    attributes:
+      label: Server Platform
+      description: What server platform is this bug affecting?
+      options:
+        - ASP.NET
+        - Node.js
+        - Java
+    validations:
+      required: true
+
