@@ -1,4 +1,4 @@
-name: Bug report
+name: 🐞 Bug report
 description: Create a bug report
 title: "[BUG]: "
 labels: ["bug", "needs triage"]
@@ -35,6 +35,13 @@ body:
         - ASP.NET
         - Node.js
         - Java
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Description
+      description: Please give us a detailed description of the issue that you're seeing. You can add screenshots and videos as well.
+      placeholder: Tell us what you see!
     validations:
       required: true
 
