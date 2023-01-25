@@ -6,7 +6,7 @@ body:
   - type: input
     attributes:
       label: Company
-      description: The company which owns the Reveal SDK license.
+      description: The company owning the Reveal SDK license.
     validations:
       required: true
   - type: input
@@ -40,8 +40,7 @@ body:
   - type: textarea
     attributes:
       label: Description
-      description: Please give us a detailed description of the issue that you're seeing. You can add screenshots and videos as well.
-      placeholder: Tell us what you see!
+      description: Please provide a detailed description of the issue that you're seeing. You can add screenshots and videos as well.
     validations:
       required: true
 
