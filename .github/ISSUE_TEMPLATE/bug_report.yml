@@ -1,7 +1,7 @@
 name: 🐞 Bug Report
 description: Create a bug report
 title: "[BUG]: "
-labels: [":bug: bug", ":clock10: status: awaiting-review"]
+labels: [":bug: bug", ":heavy_plus_sign: status: new"]
 body:
   - type: input
     attributes:
