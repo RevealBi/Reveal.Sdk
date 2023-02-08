@@ -4,7 +4,7 @@ The Reveal SDK uses GitHub Issues as an official bug tracker.
 
 [![Board Status](https://infragistics.visualstudio.com/14a7928c-44bc-4aed-b2ca-9a0ffbb14d7a/1b230d81-a651-4526-b94b-86fd3cab43e1/_apis/work/boardbadge/c5d794c3-94c4-482d-9905-b227402b4abd?columnOptions=1)](https://infragistics.visualstudio.com/14a7928c-44bc-4aed-b2ca-9a0ffbb14d7a/_boards/board/t/1b230d81-a651-4526-b94b-86fd3cab43e1/Microsoft.RequirementCategory/)
 
-__This repository does not contain the actual source code of the SDK.__
+_This repository does not contain the actual source code of the SDK._
 
 # Issue Workflow
 
