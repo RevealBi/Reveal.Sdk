@@ -1,12 +1,23 @@
-# Reveal.Sdk
+<h1 align="center">
+  The Official Bug Tracker for the Reveal SDK 
+</h1>
 
-The Reveal SDK uses GitHub Issues as an official bug tracker.
+[![Board Status](https://infragistics.visualstudio.com/14a7928c-44bc-4aed-b2ca-9a0ffbb14d7a/1b230d81-a651-4526-b94b-86fd3cab43e1/_apis/work/boardbadge/c5d794c3-94c4-482d-9905-b227402b4abd)](https://infragistics.visualstudio.com/14a7928c-44bc-4aed-b2ca-9a0ffbb14d7a/_boards/board/t/1b230d81-a651-4526-b94b-86fd3cab43e1/Microsoft.RequirementCategory/)
 
-[![Board Status](https://infragistics.visualstudio.com/14a7928c-44bc-4aed-b2ca-9a0ffbb14d7a/1b230d81-a651-4526-b94b-86fd3cab43e1/_apis/work/boardbadge/c5d794c3-94c4-482d-9905-b227402b4abd?columnOptions=1)](https://infragistics.visualstudio.com/14a7928c-44bc-4aed-b2ca-9a0ffbb14d7a/_boards/board/t/1b230d81-a651-4526-b94b-86fd3cab43e1/Microsoft.RequirementCategory/)
+Reveal Embedded Analytics enables your teams and customers to drive data insights with embedded intelligence, accelerate time to market, and transform the user experience of your apps. Built with embedding in mind first, on today’s most modern architecture, Reveal’s powerful API removes the complexity of embedding analytics into your applications. Reveal’s native SDKs make integrating into your application seamless on any platform and tech stack, including .NET Core, Java, NodeJS (coming soon), and front-end technologies such as React, Angular, WebComponent, VueJS, jQuery, MVC, and Java Frameworks like Spring, Tomcat, and Apache. 
 
-_This repository does not contain the actual source code of the SDK._
+With intuitive drag-and-drop functionality, creating beautiful and informative dashboards on any device is simple. Quickly run predictive analysis and machine learning models with just a few clicks to make more educated business decisions. Reveal embed keeps your teams focused on your app's core value and lights up your user experience - with a simple, fixed price. 
 
-# Issue Workflow
+_This repository does not contain the actual source code of the Reveal SDK._
+
+### Feedback
+ - [Report a Bug](https://github.com/RevealBi/Reveal.Sdk/issues/new?assignees=&labels=%3Abug%3A+bug%2C%3Aheavy_plus_sign%3A+status%3A+new&template=bug_report.yml&title=%5BBUG%5D%3A+)
+ - Request a new [new feature](https://github.com/RevealBi/Reveal.Sdk/issues/new?assignees=&labels=%3Atoolbox%3A+feature-request&template=feature_request.md&title=)
+ - Upvote [popular feature requests](https://github.com/RevealBi/Reveal.Sdk/issues?q=is%3Aissue+is%3Aopen+label%3A%22%3Atoolbox%3A+feature-request%22)
+ - Ask a question by starting [a discussion](https://github.com/RevealBi/Reveal.Sdk/discussions)
+ - Reach out to us [through Discord](https://discord.gg/Ped3sSK5Xw)
+
+## Issue Workflow
 
 When working on an issue for the Reveal SDK, you need to be aware of and to follow a correct status workflow. We have created a number of status labels in order to communicate well what the current status of a single issue is. The statuses are as follows:
 
