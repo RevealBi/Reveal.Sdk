@@ -1,3 +1,5 @@
+![revealbi-github](https://user-images.githubusercontent.com/835562/224768071-b6440186-e8ad-460c-9ce0-84f065311ee7.svg)
+
 <h1 align="center">
   The Official Bug Tracker for the Reveal SDK 
 </h1>
