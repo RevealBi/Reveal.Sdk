@@ -5,12 +5,6 @@ labels: [":bug: bug", ":heavy_plus_sign: status: new"]
 body:
   - type: input
     attributes:
-      label: Company
-      description: The company owning the Reveal SDK license.
-    validations:
-      required: true
-  - type: input
-    attributes:
       label: SDK Version
       description: Version of the Reveal SDK the bug was found.
     validations:
@@ -35,6 +29,16 @@ body:
         - ASP.NET
         - Node.js
         - Java
+    validations:
+      required: true
+  - type: dropdown
+    attributes:
+      label: Operating System
+      description: What operating system are you using?
+      options:
+        - Linux
+        - Mac
+        - Windows
     validations:
       required: true
   - type: textarea
