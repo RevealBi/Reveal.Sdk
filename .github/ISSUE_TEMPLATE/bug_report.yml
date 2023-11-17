@@ -15,9 +15,10 @@ body:
       description: What JavaScript framework is this bug affecting?
       options:
         - Angular
+        - ASP.NET Web App
         - HTML/JavaScript
         - React
-        - ASP.NET Web App
+        - WPF
         - Other
     validations:
       required: true
@@ -26,6 +27,7 @@ body:
       label: Server Platform
       description: What server platform is this bug affecting?
       options:
+        - None
         - ASP.NET
         - Node.js
         - Java
