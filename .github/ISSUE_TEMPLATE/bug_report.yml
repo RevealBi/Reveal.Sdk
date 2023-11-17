@@ -27,12 +27,9 @@ body:
       label: Server Platform
       description: What server platform is this bug affecting?
       options:
-        - None
         - ASP.NET
         - Node.js
         - Java
-    validations:
-      required: true
   - type: dropdown
     attributes:
       label: Operating System
