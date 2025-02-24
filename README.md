@@ -17,7 +17,7 @@ _This repository does not contain the actual source code of the Reveal SDK._
  - Request a new [new feature](https://github.com/RevealBi/Reveal.Sdk/issues/new?assignees=&labels=%3Atoolbox%3A+feature-request&template=feature_request.md&title=)
  - Upvote [popular feature requests](https://github.com/RevealBi/Reveal.Sdk/issues?q=is%3Aissue+is%3Aopen+label%3A%22%3Atoolbox%3A+feature-request%22)
  - Ask a question by starting [a discussion](https://github.com/RevealBi/Reveal.Sdk/discussions)
- - Reach out to us [through Discord](https://discord.gg/Ped3sSK5Xw)
+ - Reach out to us through Discord. Contact your sales representative for an invite link.
 
 ## Issue Workflow
 
