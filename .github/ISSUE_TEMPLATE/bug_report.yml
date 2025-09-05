@@ -40,6 +40,10 @@ body:
         - Windows
     validations:
       required: true
+  - type: input
+    attributes:
+      label: Discord thread
+      description: A link to the discord thread that contains any previous context or communication about the issue.
   - type: textarea
     attributes:
       label: Description
