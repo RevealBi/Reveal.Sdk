@@ -1,7 +1,7 @@
 # MongoDB Connection Verification Fails - Missing userContext in Second Auth Call
 
 **Issue**: [#617](https://github.com/RevealBi/Reveal.Sdk/issues/617) (MongoDB Connection Verification Fails Due to Missing userContext in Second Authentication Call)  
-**SDK Version Affected**: ≤ 1.8.4  
+**SDK Version Affected**: 1.7.x – 1.8.4 (fix not yet released)
 **Platform**: Node.js  
 
 ## Root Cause Analysis
@@ -103,13 +103,44 @@ Additionally, the following change in `httpRequestToEngineEndpoint` prevents a d
 
 ## Temporary Workaround (user-side)
 
-Until the SDK is patched, you can work around the issue by caching the resolved credentials per user and falling back to the cache when `userContext` is `null`:
+Until the SDK is patched, the safest user-side workaround is to use credentials that do **not** require `userContext` for MongoDB data sources, or to look up credentials from a request-scoped store keyed by `userId`.
+
+### Option A – Single product / shared credentials (safe for all concurrency levels)
+
+If all users share the same MongoDB credentials (or if only one product uses MongoDB), configure those credentials directly without depending on `userContext`:
 
 ```javascript
 const reveal = require('reveal-sdk-node');
 
-// Cache credentials keyed by userId so the second (null-context) call can fall back.
-const credentialCache = new Map();
+const MONGODB_CREDS = new reveal.RVUsernamePasswordDataSourceCredential('mongoUser', 'mongoPass');
+
+const app = reveal({
+    userContextProvider: (req) => {
+        // Populate userContext as usual for other data sources
+        return { userId: req.headers['x-user-id'], productKey: req.headers['x-product-key'] };
+    },
+
+    authenticationProvider: async (userContext, dataSource) => {
+        if (dataSource instanceof reveal.RVMongoDBDataSource) {
+            // Return fixed credentials – no userContext dependency, safe for any call order.
+            return MONGODB_CREDS;
+        }
+        // Other data sources that genuinely need userContext
+        if (!userContext) return null;
+        return resolveCredentials(userContext.productKey, dataSource);
+    }
+});
+```
+
+### Option B – Per-user credentials with request-scoped cache (⚠️ limited safety)
+
+> **🔴 SECURITY WARNING**: This option uses a shared in-memory cache. In a multi-user environment the second (null-context) call cannot be attributed to a specific user, so returning a cached credential risks serving **one user's MongoDB credentials to a different user's verification request**. Only use this if the server handles one user at a time (e.g., development/single-tenant deployments).
+
+```javascript
+const reveal = require('reveal-sdk-node');
+
+// Short-lived cache: userId → credentials. Entries are removed after use.
+const pendingVerifyCache = new Map();
 
 const app = reveal({
     userContextProvider: (req) => {
@@ -122,27 +153,27 @@ const app = reveal({
     authenticationProvider: async (userContext, dataSource) => {
         if (dataSource instanceof reveal.RVMongoDBDataSource) {
             if (userContext) {
-                // First call – resolve and cache credentials.
-                const creds = await resolveCredentials(userContext.productKey);
-                credentialCache.set(userContext.userId, creds);
+                // First call – resolve and cache credentials keyed by userId.
+                const creds = await resolveMongoCredentials(userContext.productKey);
+                pendingVerifyCache.set(userContext.userId, creds);
+                // Auto-expire after 30 s to avoid stale entries
+                setTimeout(() => pendingVerifyCache.delete(userContext.userId), 30000);
                 return creds;
-            } else {
-                // Second call during MongoDB verification – userContext is null due to SDK bug.
-                // This is a temporary workaround; ideally userContext should never be null here.
-                // Return the most recently cached credential.
-                // NOTE: This workaround is only safe in a single-user or low-concurrency scenario.
-                const cached = [...credentialCache.values()].pop();
-                return cached ?? null;
             }
+            // Second call (SDK bug) – userContext is null. We cannot safely identify the user.
+            // ⚠️ In a multi-user environment this may return the wrong user's credentials.
+            // The real fix must be applied in the SDK (see patch above).
+            return null; // Returning null causes verification to fail but avoids credential leak.
         }
-        return null;
+        if (!userContext) return null;
+        return resolveCredentials(userContext.productKey, dataSource);
     }
 });
 
-async function resolveCredentials(productKey) {
-    // Replace with your actual credential lookup logic
+async function resolveMongoCredentials(productKey) {
+    // Replace with your credential lookup logic
     return new reveal.RVUsernamePasswordDataSourceCredential('user', 'password');
 }
 ```
 
-> **⚠️ Note**: The workaround above using `credentialCache` is not safe for multi-user/high-concurrency environments because there is no reliable way to identify which user the second (null-context) call belongs to. The proper fix must be applied in the SDK itself.
+> **Bottom line**: The only fully safe and correct fix is the SDK-level patch described above. The user-side workarounds are imperfect substitutes.
