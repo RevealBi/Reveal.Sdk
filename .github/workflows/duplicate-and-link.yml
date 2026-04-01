@@ -8,12 +8,15 @@ jobs:
     # Trigger only when the specific label is added
     if: github.event.label.name == 'added-to-backlog'
     runs-on: ubuntu-latest
+    permissions:
+      issues: write
     steps:
       - name: Create cross-repository internal tracking issue
+        id: create-issue
         uses: actions/github-script@v7
         with:
-          # PAT_TOKEN must have read/write Issues access on both RevealBi/Reveal.Sdk
-          # and Infragistics-BusinessTools/Reveal.
+          # PAT_TOKEN needs read/write Issues access on Infragistics-BusinessTools/Reveal
+          # and read access on RevealBi/Reveal.Sdk (to fetch comments).
           github-token: ${{ secrets.PAT_TOKEN }}
           script: |
             const sourceOwner = 'RevealBi';
@@ -89,10 +92,11 @@ jobs:
             // ── 4. Resolve assignees that exist in the target org ───────────────
             const assignees = (originalIssue.assignees || []).map(a => a.login);
 
-            // ── 5. Filter labels – drop the trigger label ───────────────────────
+            // ── 5. Filter labels – drop the trigger label, add source label ────────
             const cleanLabels = originalIssue.labels
               .map(l => l.name)
-              .filter(name => name !== 'added-to-backlog');
+              .filter(name => name !== 'added-to-backlog')
+              .concat(['from-public-github']);
 
             // ── 6. Create the issue in the target repository ────────────────────
             const { data: newIssue } = await github.rest.issues.create({
@@ -105,16 +109,52 @@ jobs:
             });
 
             core.info(`Created target issue: ${newIssue.html_url}`);
+            core.setOutput('new_issue_number', String(newIssue.number));
 
-            // ── 7. Back-link comment on the original issue ──────────────────────
+            // ── 7. Add the new issue to the internal project board ─────────────
+            try {
+              const projectData = await github.graphql(`
+                query($org: String!, $number: Int!) {
+                  organization(login: $org) {
+                    projectV2(number: $number) { id }
+                  }
+                }
+              `, { org: targetOwner, number: 5 });
+
+              const projectId = projectData.organization.projectV2.id;
+
+              await github.graphql(`
+                mutation($projectId: ID!, $contentId: ID!) {
+                  addProjectV2ItemById(input: { projectId: $projectId, contentId: $contentId }) {
+                    item { id }
+                  }
+                }
+              `, { projectId, contentId: newIssue.node_id });
+
+              core.info(`Issue added to project Infragistics-BusinessTools/projects/5`);
+            } catch (err) {
+              core.warning(`Could not add issue to project: ${err.message}`);
+            }
+
+      - name: Post back-link comment on original issue
+        uses: actions/github-script@v7
+        with:
+          # GITHUB_TOKEN has write access to this repo and can post comments.
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const targetOwner    = 'Infragistics-BusinessTools';
+            const targetRepo     = 'Reveal';
+            const newIssueNumber = '${{ steps.create-issue.outputs.new_issue_number }}';
+            const originalIssue  = context.payload.issue;
+
             const backLinkBody =
               `Thank you for the report! We have added this issue to our internal backlog for further review and prioritization.\n\n` +
               `We will update this thread as progress is made. ` +
-              `*(Internal Tracking ID: \`${targetOwner}/${targetRepo}#${newIssue.number}\`)*`;
+              `*(Internal Tracking ID: \`${targetOwner}/${targetRepo}#${newIssueNumber}\`)*`;
 
             await github.rest.issues.createComment({
-              owner:        sourceOwner,
-              repo:         sourceRepo,
+              owner:        context.repo.owner,
+              repo:         context.repo.repo,
               issue_number: originalIssue.number,
               body:         backLinkBody,
             });
