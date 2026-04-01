@@ -1,0 +1,122 @@
+name: Sync Issue to Internal Backlog
+on:
+  issues:
+    types: [labeled]
+
+jobs:
+  track-internal-issue:
+    # Trigger only when the specific label is added
+    if: github.event.label.name == 'added-to-backlog'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create cross-repository internal tracking issue
+        uses: actions/github-script@v7
+        with:
+          # PAT_TOKEN must have read/write Issues access on both RevealBi/Reveal.Sdk
+          # and Infragistics-BusinessTools/Reveal.
+          github-token: ${{ secrets.PAT_TOKEN }}
+          script: |
+            const sourceOwner = 'RevealBi';
+            const sourceRepo  = 'Reveal.Sdk';
+            const targetOwner = 'Infragistics-BusinessTools';
+            const targetRepo  = 'Reveal';
+
+            const originalIssue = context.payload.issue;
+            const issueUrl = originalIssue.html_url;
+
+            // ── 1. Fetch existing comments ──────────────────────────────────────
+            let commentsSection = '';
+            let hasComments = false;
+            try {
+              const { data: comments } = await github.rest.issues.listComments({
+                owner: sourceOwner,
+                repo:  sourceRepo,
+                issue_number: originalIssue.number,
+                per_page: 100,
+              });
+
+              if (comments.length > 0) {
+                hasComments = true;
+                const commentLines = comments.map((c, i) => {
+                  const author = c.user ? c.user.login : 'unknown';
+                  const date   = new Date(c.created_at).toISOString().split('T')[0];
+                  return `> **Comment ${i + 1}** by @${author} on ${date}:\n>\n> ${c.body.replace(/\n/g, '\n> ')}\n`;
+                });
+                commentsSection =
+                  `\n\n---\n## 💬 Comments from original issue\n\n` +
+                  `> ⚠️ **Note:** Comments have been copied as text below. ` +
+                  `Original comment authors cannot be preserved across organizations.\n\n` +
+                  commentLines.join('\n');
+              }
+            } catch (err) {
+              core.warning(`Could not fetch comments: ${err.message}`);
+            }
+
+            // ── 2. Detect attachments in the issue body ─────────────────────────
+            // GitHub attachment URLs live under /assets/ or user-images.githubusercontent.com.
+            // They cannot be re-uploaded via API; we warn instead.
+            const attachmentRegex = /!\[.*?\]\((https?:\/\/[^\)]+(?:\/assets\/|user-images\.githubusercontent\.com)[^\)]+)\)/g;
+            const bodyToScan = originalIssue.body || '';
+            const attachmentMatches = [...bodyToScan.matchAll(attachmentRegex)];
+            let attachmentNotice = '';
+            if (attachmentMatches.length > 0) {
+              const attachmentList = attachmentMatches
+                .map((m, i) => `${i + 1}. ${m[1]}`)
+                .join('\n');
+              attachmentNotice =
+                `\n\n---\n## 📎 Attachments notice\n\n` +
+                `> ⚠️ **Note:** The original issue contains ${attachmentMatches.length} attachment(s) that ` +
+                `cannot be transferred via the GitHub API. The attachment URL(s) are listed below for reference, ` +
+                `but they may become inaccessible if the source issue is deleted or the organization restricts access.\n\n` +
+                attachmentList;
+            }
+
+            // ── 3. Build new issue body ─────────────────────────────────────────
+            const reporter  = originalIssue.user ? originalIssue.user.login : 'unknown';
+            const createdAt = new Date(originalIssue.created_at).toISOString().split('T')[0];
+
+            const header =
+              `> 🔗 **Tracked from original report:** [${sourceOwner}/${sourceRepo}#${originalIssue.number}](${issueUrl})\n` +
+              `> Originally reported by @${reporter} on ${createdAt}\n\n` +
+              `---\n\n`;
+
+            const newIssueBody =
+              header +
+              (originalIssue.body || '_No description provided._') +
+              attachmentNotice +
+              commentsSection;
+
+            // ── 4. Resolve assignees that exist in the target org ───────────────
+            const assignees = (originalIssue.assignees || []).map(a => a.login);
+
+            // ── 5. Filter labels – drop the trigger label ───────────────────────
+            const cleanLabels = originalIssue.labels
+              .map(l => l.name)
+              .filter(name => name !== 'added-to-backlog');
+
+            // ── 6. Create the issue in the target repository ────────────────────
+            const { data: newIssue } = await github.rest.issues.create({
+              owner:     targetOwner,
+              repo:      targetRepo,
+              title:     originalIssue.title,
+              body:      newIssueBody,
+              labels:    cleanLabels,
+              assignees: assignees,
+            });
+
+            core.info(`Created target issue: ${newIssue.html_url}`);
+
+            // ── 7. Back-link comment on the original issue ──────────────────────
+            const backLinkBody =
+              `Thank you for the report! We have added this issue to our internal backlog for further review and prioritization.\n\n` +
+              `We will update this thread as progress is made. ` +
+              `*(Internal Tracking ID: \`${targetOwner}/${targetRepo}#${newIssue.number}\`)*`;
+
+            await github.rest.issues.createComment({
+              owner:        sourceOwner,
+              repo:         sourceRepo,
+              issue_number: originalIssue.number,
+              body:         backLinkBody,
+            });
+
+            core.info(`Back-link comment posted on source issue #${originalIssue.number}`);
