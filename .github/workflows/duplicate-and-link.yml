@@ -92,10 +92,11 @@ jobs:
             // ── 4. Resolve assignees that exist in the target org ───────────────
             const assignees = (originalIssue.assignees || []).map(a => a.login);
 
-            // ── 5. Filter labels – drop the trigger label ───────────────────────
+            // ── 5. Filter labels – drop the trigger label, add source label ────────
             const cleanLabels = originalIssue.labels
               .map(l => l.name)
-              .filter(name => name !== 'added-to-backlog');
+              .filter(name => name !== 'added-to-backlog')
+              .concat(['from-public-github']);
 
             // ── 6. Create the issue in the target repository ────────────────────
             const { data: newIssue } = await github.rest.issues.create({
