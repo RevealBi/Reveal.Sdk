@@ -147,10 +147,11 @@ jobs:
             const newIssueNumber = '${{ steps.create-issue.outputs.new_issue_number }}';
             const originalIssue  = context.payload.issue;
 
+            const internalUrl = `https://github.com/${targetOwner}/${targetRepo}/issues/${newIssueNumber}`;
             const backLinkBody =
               `Thank you for the report! We have added this issue to our internal backlog for further review and prioritization.\n\n` +
               `We will update this thread as progress is made. ` +
-              `*(Internal Tracking ID: \`${targetOwner}/${targetRepo}#${newIssueNumber}\`)*`;
+              `*(Internal Tracking ID: [${targetOwner}/${targetRepo}#${newIssueNumber}](${internalUrl}))*`;
 
             await github.rest.issues.createComment({
               owner:        context.repo.owner,
