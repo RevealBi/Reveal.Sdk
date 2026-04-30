@@ -2,6 +2,7 @@ name: 🐞 Bug Report
 description: Create a bug report
 title: "[BUG]: "
 labels: [":bug: bug", ":heavy_plus_sign: status: new"]
+type: Bug
 body:
   - type: input
     attributes:
