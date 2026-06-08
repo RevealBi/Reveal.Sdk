@@ -2,11 +2,17 @@ name: Sync Issue to Internal Backlog
 on:
   issues:
     types: [labeled]
+  workflow_dispatch:
+    inputs:
+      issue_number:
+        description: 'Issue number to sync to the internal backlog'
+        required: true
+        type: number
 
 jobs:
   track-internal-issue:
-    # Trigger only when the specific label is added
-    if: github.event.label.name == 'added-to-backlog'
+    # Trigger when the label is added, or when manually dispatched
+    if: github.event_name == 'workflow_dispatch' || github.event.label.name == 'added-to-backlog'
     runs-on: ubuntu-latest
     permissions:
       issues: write
@@ -24,7 +30,19 @@ jobs:
             const targetOwner = 'Infragistics-BusinessTools';
             const targetRepo  = 'Reveal';
 
-            const originalIssue = context.payload.issue;
+            // For workflow_dispatch, fetch the issue by the provided number;
+            // for the label event, use the issue from the event payload.
+            let originalIssue;
+            if (context.eventName === 'workflow_dispatch') {
+              const { data: fetchedIssue } = await github.rest.issues.get({
+                owner: sourceOwner,
+                repo:  sourceRepo,
+                issue_number: Number(context.payload.inputs.issue_number),
+              });
+              originalIssue = fetchedIssue;
+            } else {
+              originalIssue = context.payload.issue;
+            }
             const issueUrl = originalIssue.html_url;
 
             // ── 1. Fetch existing comments ──────────────────────────────────────
@@ -89,29 +107,60 @@ jobs:
               attachmentNotice +
               commentsSection;
 
-            // ── 4. Resolve assignees that exist in the target org ───────────────
-            const assignees = (originalIssue.assignees || []).map(a => a.login);
+            // ── 4. Check for an existing linked issue in the target repo ──────────
+            // Search for any open/closed issue whose body already contains the
+            // source issue reference stamped by this workflow in the header.
+            const searchQuery = `repo:${targetOwner}/${targetRepo} in:body "${sourceOwner}/${sourceRepo}#${originalIssue.number}"`;
+            const { data: searchResult } = await github.rest.search.issuesAndPullRequests({
+              q: searchQuery,
+              per_page: 1,
+            });
 
-            // ── 5. Filter labels – drop the trigger label, add source label ────────
+            if (searchResult.total_count > 0) {
+              const existing = searchResult.items[0];
+              core.warning(`Duplicate detected – issue already tracked as ${targetOwner}/${targetRepo}#${existing.number} (${existing.html_url}). Skipping creation.`);
+              core.setOutput('new_issue_number', String(existing.number));
+              return;
+            }
+
+            // ── 5. Resolve assignees that exist in the target org ───────────────
+            // Only include assignees who are collaborators on the target repo;
+            // GitHub returns 422 if any assignee is invalid.
+            const candidateAssignees = (originalIssue.assignees || []).map(a => a.login);
+            const assignees = [];
+            for (const login of candidateAssignees) {
+              try {
+                await github.rest.repos.checkCollaborator({
+                  owner: targetOwner,
+                  repo:  targetRepo,
+                  username: login,
+                });
+                assignees.push(login);
+              } catch {
+                core.warning(`Skipping assignee @${login}: not a collaborator on ${targetOwner}/${targetRepo}`);
+              }
+            }
+
+            // ── 6. Filter labels – drop the trigger label, add source label ────────
             const cleanLabels = originalIssue.labels
               .map(l => l.name)
               .filter(name => name !== 'added-to-backlog')
               .concat(['from-public-github']);
 
-            // ── 6. Create the issue in the target repository ────────────────────
+            // ── 7. Create the issue in the target repository ────────────────────
             const { data: newIssue } = await github.rest.issues.create({
               owner:     targetOwner,
               repo:      targetRepo,
               title:     originalIssue.title,
               body:      newIssueBody,
               labels:    cleanLabels,
-              assignees: assignees,
+              ...(assignees.length > 0 && { assignees }),
             });
 
             core.info(`Created target issue: ${newIssue.html_url}`);
             core.setOutput('new_issue_number', String(newIssue.number));
 
-            // ── 7. Add the new issue to the internal project board ─────────────
+            // ── 8. Add the new issue to the internal project board ─────────────
             try {
               const projectData = await github.graphql(`
                 query($org: String!, $number: Int!) {
@@ -145,7 +194,14 @@ jobs:
             const targetOwner    = 'Infragistics-BusinessTools';
             const targetRepo     = 'Reveal';
             const newIssueNumber = '${{ steps.create-issue.outputs.new_issue_number }}';
-            const originalIssue  = context.payload.issue;
+            const issueNumber = context.eventName === 'workflow_dispatch'
+              ? Number(context.payload.inputs.issue_number)
+              : context.payload.issue.number;
+            const { data: originalIssue } = await github.rest.issues.get({
+              owner: context.repo.owner,
+              repo:  context.repo.repo,
+              issue_number: issueNumber,
+            });
 
             const internalUrl = `https://github.com/${targetOwner}/${targetRepo}/issues/${newIssueNumber}`;
             const backLinkBody =
