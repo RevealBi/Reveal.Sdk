@@ -110,7 +110,7 @@ jobs:
             // ── 4. Check for an existing linked issue in the target repo ──────────
             // Search for any open/closed issue whose body already contains the
             // source issue reference stamped by this workflow in the header.
-            const searchQuery = `repo:${targetOwner}/${targetRepo} in:body "${sourceOwner}/${sourceRepo}#${originalIssue.number}"`;
+            const searchQuery = `repo:${targetOwner}/${targetRepo} is:issue in:body "${sourceOwner}/${sourceRepo}#${originalIssue.number}"`;
             const { data: searchResult } = await github.rest.search.issuesAndPullRequests({
               q: searchQuery,
               per_page: 1,
