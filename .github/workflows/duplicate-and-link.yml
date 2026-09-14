@@ -141,10 +141,14 @@ jobs:
               }
             }
 
-            // ── 6. Filter labels – drop the trigger label, add source label ────────
+            // ── 6. Filter labels – drop excluded labels, add source label ────────
+            // 'added-to-backlog' is the trigger label and is meaningless internally.
+            // ':bug: bug' belongs to the public taxonomy only – internal triage applies
+            // its own issue-type labels, so it must not be mirrored.
+            const EXCLUDED_LABELS = ['added-to-backlog', ':bug: bug'];
             const cleanLabels = originalIssue.labels
               .map(l => l.name)
-              .filter(name => name !== 'added-to-backlog')
+              .filter(name => !EXCLUDED_LABELS.includes(name))
               .concat(['from-public-github']);
 
             // ── 7. Create the issue in the target repository ────────────────────
