@@ -1,0 +1,12 @@
+{
+  "name": "reveal-sdk",
+  "description": "Skills for building with the Reveal SDK: embedding Reveal dashboards in your application, connecting data, securing per-user data, and going to production.",
+  "version": "0.1.0",
+  "author": {
+    "name": "Reveal BI"
+  },
+  "homepage": "https://help.revealbi.io/web/",
+  "repository": "https://github.com/RevealBi/Reveal.Sdk",
+  "keywords": ["reveal", "revealbi", "sdk", "embedded-analytics", "dashboards"],
+  "skills": "./skills/"
+}

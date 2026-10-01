@@ -19,6 +19,17 @@ _This repository does not contain the actual source code of the Reveal SDK._
  - Ask a question by starting [a discussion](https://github.com/RevealBi/Reveal.Sdk/discussions)
  - Reach out to us through Discord. Contact your sales representative for an invite link.
 
+## AI Agent Skills
+
+The [`skills/`](skills) folder has [Agent Skills](https://agentskills.io) that teach AI coding assistants (Claude Code, GitHub Copilot, Cursor and others) to build with the Reveal SDK. [`reveal-embed`](skills/reveal-embed/SKILL.md) helps you embed Reveal dashboards in your app: server setup, client, data sources, user context, theming, export and production.
+
+```bash
+gh skill install RevealBi/Reveal.Sdk reveal-embed                      # GitHub CLI 2.90+
+npx skills add RevealBi/Reveal.Sdk --skill reveal-embed                 # skills CLI
+```
+
+In Claude Code you can also run `/plugin marketplace add RevealBi/Reveal.Sdk`, then `/plugin install reveal-sdk@reveal-sdk`.
+
 ## Issue Workflow
 
 When working on an issue for the Reveal SDK, you need to be aware of and to follow a correct status workflow. We have created a number of status labels in order to communicate well what the current status of a single issue is. The statuses are as follows:
