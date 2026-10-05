@@ -41,7 +41,7 @@ ServletRegistrationBean<RevealEngineServlet> revealServlet() {
                 // Only set a non-blank key; an empty one disables the license file fallback.
                 String license = System.getenv("REVEAL_LICENSE");
                 if (license != null && !license.isBlank()) {
-                    settings.setLicense(license);
+                    settings.setLicense(license.strip());
                 }
             })
             .build(),

@@ -77,8 +77,10 @@ const revealOptions = {
     dataSourceProvider,
     dataSourceItemProvider,
 };
-if (process.env.REVEAL_LICENSE) {
-    revealOptions.license = process.env.REVEAL_LICENSE;
+// Only pass a non-blank key; an empty or whitespace value disables the key file fallback.
+const license = process.env.REVEAL_LICENSE?.trim();
+if (license) {
+    revealOptions.license = license;
 }
 
 app.use("/", reveal(revealOptions));

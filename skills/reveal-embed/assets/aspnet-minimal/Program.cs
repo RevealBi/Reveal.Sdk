@@ -19,7 +19,8 @@ builder.Services.AddControllers().AddReveal(reveal =>
 {
     reveal.AddSettings(settings =>
     {
-        var license = builder.Configuration["Reveal:License"];
+        // Only set a non-blank key; an empty or whitespace one disables the key file fallback.
+        var license = builder.Configuration["Reveal:License"]?.Trim();
         if (!string.IsNullOrEmpty(license))
         {
             settings.License = license;

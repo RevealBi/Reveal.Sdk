@@ -21,8 +21,8 @@ builder.Services.AddControllers().AddReveal(revealBuilder =>
     {
         // Prefer configuration over a literal; see production.md for the license file option.
         // Only assign a non-blank value; an empty one is an invalid key and disables the file fallback.
-        var license = builder.Configuration["Reveal:License"];
-        if (!string.IsNullOrWhiteSpace(license))
+        var license = builder.Configuration["Reveal:License"]?.Trim();
+        if (!string.IsNullOrEmpty(license))
         {
             settings.License = license;
         }

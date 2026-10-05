@@ -42,9 +42,25 @@ public class UserContextProvider : IRVUserContextProvider
 }
 ```
 
-Protect the Reveal endpoints with the app's normal auth. In ASP.NET, Reveal's endpoints are controllers, so a global authorization policy (`builder.Services.AddAuthorization(o => o.FallbackPolicy = ...)`) or the app's existing auth middleware applies to them.
+Protect the Reveal endpoints with the app's normal auth, and make sure it **rejects** anonymous requests. Authentication middleware only identifies the caller; it does not block anyone. In ASP.NET, `UseAuthentication()` populates `HttpContext.User` but an endpoint without an authorization requirement still serves anonymous callers. Reveal's endpoints are controllers without `[Authorize]`, so require it globally:
 
-Node: `userContextProvider: (request) => new reveal.RVUserContext(request.user?.id, props)`, after the app's auth middleware has populated `request.user` (Passport, express-jwt). Mount the auth middleware before `app.use(..., reveal(...))`.
+```csharp
+builder.Services.AddAuthorization(o =>
+    o.FallbackPolicy = new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build());
+// ...
+app.UseAuthentication();
+app.UseAuthorization();
+app.MapControllers();   // or app.MapControllers().RequireAuthorization();
+```
+
+Mark the app's own public endpoints (login, health checks) with `[AllowAnonymous]`.
+
+Node: `userContextProvider: (request) => new reveal.RVUserContext(request.user?.id, props)`, after the app's auth middleware has populated `request.user` (Passport, express-jwt). Mount the auth middleware before `app.use(..., reveal(...))`, and make sure it returns `401` when there is no user. `passport.authenticate(..., { session: false })` and `express-jwt` with `credentialsRequired: true` (the default) do; `passport.session()` alone, or `express-jwt` with `credentialsRequired: false`, only populate `request.user` and let anonymous requests through. If in doubt, add a guard:
+
+```js
+const requireAuth = (req, res, next) => (req.user ? next() : res.sendStatus(401));
+app.use("/reveal-api", authenticate, requireAuth, reveal(revealOptions));
+```
 
 Java: build it in the `RevealEngineServlet` user context lambda from `request.getUserPrincipal()` or the Spring Security context.
 

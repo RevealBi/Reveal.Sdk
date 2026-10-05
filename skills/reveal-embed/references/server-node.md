@@ -30,9 +30,10 @@ const revealOptions = {
     // dashboardStorageProvider,                  // async (userContext, dashboardId, stream) => void (saving)
 };
 
-// Only pass a key that is actually set. An empty string ("REVEAL_LICENSE=" in .env) is passed
-// through as an invalid key: the engine fails to start instead of falling back to the key file.
-if (process.env.REVEAL_LICENSE) revealOptions.license = process.env.REVEAL_LICENSE;
+// Only pass a key that is actually set. An empty or whitespace value ("REVEAL_LICENSE=" in .env)
+// is passed through as an invalid key: the engine fails to start instead of falling back to the key file.
+const license = process.env.REVEAL_LICENSE?.trim();
+if (license) revealOptions.license = license;
 
 app.use("/", reveal(revealOptions));
 app.listen(5111);

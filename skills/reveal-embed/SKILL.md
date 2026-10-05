@@ -27,7 +27,7 @@ System requirements: ASP.NET 8.0+; Java 17+ with a Jakarta EE 9 server and Maven
 
 Always start here, even when the request is about something later in the list. A rendering `RevealView` proves the package, license, routing, CORS and base URL all work, so every later problem is narrowed to the feature being added.
 
-1. Install the server package and register Reveal (see the `server-*` reference). In an existing Express app, mount Reveal **before** any body parser (`express.json()` and friends), behind the app's auth middleware.
+1. Install the server package and register Reveal (see the `server-*` reference). In an existing Express app, mount Reveal **before** any body parser (`express.json()` and friends), behind the app's auth middleware, configured to reject unauthenticated requests (authentication alone does not; see user-context-security.md).
 2. Put one `.rdash` in the dashboards folder: `Dashboards/` for ASP.NET, `dashboards/` for Node, an explicit path given to `RVDashboardProvider` for Java. The dashboard id the client asks for is the file name without `.rdash`.
 3. Add the client: install `reveal-sdk` (or load it from a CDN), give the host element a real height, call `setBaseUrl` if the origins differ, then `RVDashboard.loadDashboard("Name")` and assign it to `new RevealView(element).dashboard`.
 4. Allow the client origin in CORS for development.

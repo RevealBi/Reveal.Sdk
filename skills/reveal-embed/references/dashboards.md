@@ -60,9 +60,12 @@ Save As with the server provider doing the write:
 
 ```js
 revealView.onSave = async (rv, args) => {
-    if (args.saveAs) {
+    // A new dashboard has no id yet, so a plain Save needs a name too.
+    if (args.saveAs || args.isNew) {
         const name = await askUserForName();            // app UI, not prompt() in production
-        if (!name || !(await confirmIfExists(name))) return;
+        if (!name || !(await confirmIfExists(name))) {
+            return;                                     // cancelled: no saveFinished(), so nothing is
+        }                                               // saved and the user stays in edit mode
         args.dashboardId = args.name = name;
     }
     args.saveFinished();                                // required: performs the save and leaves edit mode
@@ -73,19 +76,30 @@ Saving entirely from the client to the app's own API:
 
 ```js
 revealView.serverSideSave = false;
-revealView.onSave = (rv, args) => {
-    const id = args.saveAs ? newName : args.dashboardId;
-    const serialize = args.saveAs
-        ? cb => args.serializeWithNewName(newName, cb)
+revealView.onSave = async (rv, args) => {
+    let id = args.dashboardId;
+    if (args.saveAs || args.isNew) {
+        id = await askUserForName();
+        if (!id || !(await confirmIfExists(id))) return; // cancelled: stay in edit mode
+    }
+    const serialize = args.saveAs || args.isNew
+        ? cb => args.serializeWithNewName(id, cb)
         : cb => args.serialize(cb);
-    serialize(bytes => fetch(`/api/dashboards/${encodeURIComponent(id)}`, { method: "PUT", body: bytes })
-        .then(() => args.saveFinished()));
+    serialize(async bytes => {
+        try {
+            const res = await fetch(`/api/dashboards/${encodeURIComponent(id)}`, { method: "PUT", body: bytes });
+            if (!res.ok) throw new Error(`Save failed: ${res.status}`);
+            args.saveFinished();                        // only after the server accepted the bytes
+        } catch (err) {
+            showSaveError(err);                         // stay in edit mode so the changes are not lost
+        }
+    });
 };
 ```
 
 - `args.name` is the dashboard **title**. Keep the stored id and the title aligned, or the next Save writes under an unexpected id.
-- `args.isNew` is true for a dashboard created from `new RVDashboard()`. Its `dashboardId` is null until you set it.
-- `saveFinished()` must be called or the view stays in edit mode.
+- `args.isNew` is true for a dashboard created from `new RVDashboard()`. Its `dashboardId` is null until you set it, so treat its first Save like Save As.
+- `saveFinished()` must be called or the view stays in edit mode. On cancel or a failed request, deliberately do **not** call it: leaving edit mode would discard the user's unsaved changes. With `serverSideSave = false`, call it only after the app's API confirms the write.
 - To prevent saving: `canEdit = false` (no editing at all) or `canSaveAs = false` (no Save As).
 
 ## Creating new dashboards

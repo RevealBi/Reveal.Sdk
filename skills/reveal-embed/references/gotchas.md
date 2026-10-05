@@ -28,7 +28,7 @@ Each of these looks like an SDK defect and is a setup cause. Match the symptom, 
 
 ## License
 
-**Node: `The license key is missing or has expired. Engine failed to start`, then `Engine exited abnormally`, while a key file exists.** The `license` option is set to an empty string, usually `license: process.env.REVEAL_LICENSE` with `REVEAL_LICENSE=` in `.env`. An empty value overrides the key file. Pass `license` only when the value is non-empty.
+**Node: `The license key is missing or has expired. Engine failed to start`, then `Engine exited abnormally`, while a key file exists.** The `license` option is set to an empty string, usually `license: process.env.REVEAL_LICENSE` with `REVEAL_LICENSE=` in `.env`. An empty or whitespace value overrides the key file. Pass `license` only when the trimmed value is non-empty.
 
 **Watermark, or "license" errors at startup.** The key is not where the **running process** looks: `~/.revealbi-sdk/license.key` of the service account, not the developer. Or the file contains more than the raw key. Or a NuGet cache holds a stale package (clear the Reveal packages and reinstall).
 
