@@ -36,6 +36,12 @@ const userContextProvider = (request) => {
 const BLOCKED_URL = "https://blocked.invalid/"; // .invalid never resolves (RFC 2606)
 const BLOCKED_FILE = "local:/blocked-by-server";
 
+// Database connectors: redirect the data source AND allow-list the items (both below).
+// Enabling only the redirect would run any table or custom query the client sends
+// against the app's database with the app's credentials.
+// const SQL_ITEMS = { Orders: "SELECT * FROM Orders" };   // item id -> server query
+// const NO_ROWS = "SELECT 1 AS Empty WHERE 1 = 0";
+
 const dataSourceProvider = async (userContext, dataSource) => {
     // if (dataSource instanceof reveal.RVSqlServerDataSource) {
     //     dataSource.host = process.env.SQL_HOST;
@@ -54,6 +60,16 @@ const dataSourceProvider = async (userContext, dataSource) => {
 const dataSourceItemProvider = async (userContext, dataSourceItem) => {
     // Required: the item carries its own copy of the data source.
     await dataSourceProvider(userContext, dataSourceItem.dataSource);
+
+    // Enable together with the SQL redirect above. Every SQL item gets a server query;
+    // unknown ids get one that returns no rows (returning null would run the item as sent).
+    // if (dataSourceItem instanceof reveal.RVSqlServerDataSourceItem) {
+    //     dataSourceItem.table = null;
+    //     dataSourceItem.procedure = null;
+    //     dataSourceItem.customQuery = SQL_ITEMS[dataSourceItem.id] ?? NO_ROWS;
+    //     dataSourceItem.customQueryParameters = {};
+    //     return dataSourceItem;
+    // }
 
     // Locations the request chose. Replace with server-side allow-lists, e.g. a local file
     // uri built only from known ids (see references/data-sources.md, "Files").

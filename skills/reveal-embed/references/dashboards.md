@@ -96,6 +96,9 @@ revealView.onSave = async (rv, args) => {
         try {
             const res = await fetch(`/api/dashboards/${encodeURIComponent(id)}`, { method: "PUT", body: bytes });
             if (!res.ok) throw new Error(`Save failed: ${res.status}`);
+            // Point the loaded dashboard at the new id, or the next plain Save
+            // overwrites the original dashboard instead of the copy.
+            args.dashboardId = args.name = id;
             args.saveFinished();                        // only after the server accepted the bytes
         } catch (err) {
             showSaveError(err);                         // stay in edit mode so the changes are not lost
@@ -105,6 +108,7 @@ revealView.onSave = async (rv, args) => {
 ```
 
 - `args.name` is the dashboard **title**. Keep the stored id and the title aligned, or the next Save writes under an unexpected id.
+- After a Save As, set `args.dashboardId` (and `args.name`) to the new id before `saveFinished()` in **both** modes. With `serverSideSave = false`, `serializeWithNewName` only renames the serialized copy; the view keeps the old id until you update `args`.
 - `args.isNew` is true for a dashboard created from `new RVDashboard()`. Its `dashboardId` is null until you set it, so treat its first Save like Save As.
 - `saveFinished()` must be called or the view stays in edit mode. On cancel or a failed request, deliberately do **not** call it: leaving edit mode would discard the user's unsaved changes. With `serverSideSave = false`, call it only after the app's API confirms the write.
 - With `serverSideSave = false`, the app's `PUT /api/dashboards/{id}` is an ordinary app endpoint: require authentication, validate the id, and check the user may write that dashboard, exactly as in the server provider above.

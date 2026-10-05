@@ -63,6 +63,13 @@ Server (ASP.NET):
 ```cs
 public class DataSourceProvider : IRVDataSourceProvider
 {
+    // Server-side allow-list: item id -> the query the server runs for it.
+    private static readonly Dictionary<string, string> SqlItems = new()
+    {
+        ["Orders"] = "SELECT * FROM Orders",
+    };
+    private const string NoRows = "SELECT 1 AS Empty WHERE 1 = 0";
+
     private readonly IConfiguration _config;
     public DataSourceProvider(IConfiguration config) => _config = config;
 
@@ -81,10 +88,16 @@ public class DataSourceProvider : IRVDataSourceProvider
         // Required: changes made in ChangeDataSourceAsync do not carry over to the item's own data source.
         await ChangeDataSourceAsync(userContext, dataSourceItem.DataSource);
 
-        if (dataSourceItem is RVSqlServerDataSourceItem item && item.Id == "Orders")
+        // Handle every SQL Server item, not only known ids: the client can send any table,
+        // procedure or custom query, and it would run with the app's credentials.
+        if (dataSourceItem is RVSqlServerDataSourceItem item)
         {
-            item.Table = "Orders";
+            item.Table = null;
+            item.Procedure = null;
+            item.CustomQuery = SqlItems.TryGetValue(item.Id ?? "", out var query) ? query : NoRows;
+            item.CustomQueryParameters = new Dictionary<string, object>();
         }
+        // Add a branch like this for every other connector type the app enables (see below).
         return dataSourceItem;
     }
 }
