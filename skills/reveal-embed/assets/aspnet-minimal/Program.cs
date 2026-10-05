@@ -20,11 +20,6 @@ var anonymousDemo = args.Contains("--anonymous-demo");
 
 var builder = WebApplication.CreateBuilder(args.Where(a => a != "--anonymous-demo").ToArray());
 
-if (anonymousDemo)
-{
-    builder.WebHost.UseUrls("http://localhost:5111");
-}
-
 // Replace the placeholder with the app's real scheme (cookie, JWT bearer, OpenID Connect), e.g.:
 // builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer(...);
 builder.Services.AddAuthentication("Placeholder")
@@ -42,7 +37,15 @@ builder.Services.AddAuthorization(o =>
 // Excel/CSV exports POST the widget's data back to the server. Kestrel's 30 MB default
 // makes large exports fail with only "Export failed" in the UI. Raise any reverse
 // proxy's limit (IIS, nginx, gateway) to match.
-builder.WebHost.ConfigureKestrel(o => o.Limits.MaxRequestBodySize = 256L * 1024 * 1024);
+builder.WebHost.ConfigureKestrel(o =>
+{
+    o.Limits.MaxRequestBodySize = 256L * 1024 * 1024;
+    if (anonymousDemo)
+    {
+        // Loopback only, whatever --urls or ASPNETCORE_URLS say.
+        o.ListenLocalhost(5111);
+    }
+});
 
 builder.Services.AddControllers().AddReveal(reveal =>
 {
@@ -64,15 +67,20 @@ builder.Services.AddControllers().AddReveal(reveal =>
 });
 
 // Only needed when the front end is served from another origin (e.g. an Angular or
-// React dev server). Replace AllowAnyOrigin with your real origins outside development.
-builder.Services.AddCors(options =>
-    options.AddPolicy("RevealDev", p => p.AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod()));
+// React dev server). Opt in with Reveal:ClientOrigin (e.g. https://app.example.com);
+// never allow every origin.
+var clientOrigin = builder.Configuration["Reveal:ClientOrigin"];
+if (!string.IsNullOrWhiteSpace(clientOrigin))
+{
+    builder.Services.AddCors(options =>
+        options.AddPolicy("RevealClient", p => p.WithOrigins(clientOrigin).AllowAnyHeader().AllowAnyMethod()));
+}
 
 var app = builder.Build();
 
-if (app.Environment.IsDevelopment())
+if (!string.IsNullOrWhiteSpace(clientOrigin))
 {
-    app.UseCors("RevealDev");
+    app.UseCors("RevealClient");
 }
 
 app.UseDefaultFiles();

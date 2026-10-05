@@ -10,7 +10,9 @@
 // Start it from this folder: the default dashboards folder is ./dashboards relative to
 // the working directory. License: ~/.revealbi-sdk/license.key or REVEAL_LICENSE.
 
+const fs = require("fs");
 const path = require("path");
+const { pipeline } = require("stream/promises");
 const express = require("express");
 const cors = require("cors");
 const reveal = require("reveal-sdk-node");
@@ -104,10 +106,30 @@ const dataSourceItemProvider = async (userContext, dataSourceItem) => {
     return dataSourceItem;
 };
 
+// The built-in dashboard loading and saving join the client's dashboard id into a path
+// without checking it (an id with ..%5c escapes the folder on 2.2.1), so use explicit ones.
+const DASHBOARDS_DIR = path.join(process.cwd(), "dashboards");
+const VALID_ID = /^[A-Za-z0-9_-]{1,100}$/;
+const dashboardPath = (id) => (VALID_ID.test(id) ? path.join(DASHBOARDS_DIR, `${id}.rdash`) : null);
+
+const dashboardProvider = async (userContext, dashboardId) => {
+    const file = dashboardPath(dashboardId);
+    return file && fs.existsSync(file) ? fs.createReadStream(file) : null;
+};
+
+const dashboardStorageProvider = async (userContext, dashboardId, stream) => {
+    const file = dashboardPath(dashboardId);
+    if (!file) throw new Error("Invalid dashboard id");
+    // Add a per-user check here before anyone can overwrite a dashboard.
+    await pipeline(stream, fs.createWriteStream(file));
+};
+
 const revealOptions = {
     // local:/<file> URIs resolve here. Without it, Node 2.2.1 looks in C:\Reveal\Files.
     localFileStoragePath: path.join(__dirname, "Data"),
     userContextProvider,
+    dashboardProvider,
+    dashboardStorageProvider,
     dataSourceProvider,
     dataSourceItemProvider,
 };

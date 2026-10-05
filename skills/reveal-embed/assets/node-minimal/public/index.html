@@ -23,7 +23,15 @@
         const revealView = new RevealView("#revealView");
 
         if (name) {
-            revealView.dashboard = await RVDashboard.loadDashboard(name);
+            try {
+                revealView.dashboard = await RVDashboard.loadDashboard(name);
+            } catch (err) {
+                // Typical first-run causes: 401 (no authentication wired up yet, or start with
+                // --anonymous-demo) or a missing .rdash. See the server console and network tab.
+                const msg = document.createElement("p");
+                msg.textContent = `Could not load dashboard "${name}": ${err?.message ?? err}`;
+                document.body.prepend(msg);
+            }
         } else {
             revealView.startInEditMode = true;
             revealView.dashboard = new RVDashboard();

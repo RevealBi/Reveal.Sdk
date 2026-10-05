@@ -89,11 +89,12 @@ if (app.Environment.IsDevelopment())
 {
     app.UseCors("RevealDev");
 }
+app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
 ```
 
-`UseCors` must come after `UseRouting`/`UseHttpsRedirection` and before `UseAuthorization`. In production, use `WithOrigins("https://app.example.com")` instead of `AllowAnyOrigin`. If the client sends credentials (cookies), `AllowAnyOrigin` is not allowed with `AllowCredentials`; name the origins.
+`UseCors` must come after `UseRouting`/`UseHttpsRedirection` and before `UseAuthentication`/`UseAuthorization`. Prefer naming the dev server origin (`WithOrigins("http://localhost:4200")`) over `AllowAnyOrigin` even in development: any web page the developer visits can otherwise call the local API. In production, use `WithOrigins("https://app.example.com")` instead of `AllowAnyOrigin`. If the client sends credentials (cookies), `AllowAnyOrigin` is not allowed with `AllowCredentials`; name the origins.
 
 ## Settings worth knowing (`RevealEmbedSettings`, via `AddSettings`)
 

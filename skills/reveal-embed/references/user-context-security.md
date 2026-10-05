@@ -22,15 +22,15 @@ public class UserContextProvider : IRVUserContextProvider
     public IRVUserContext GetUserContext(HttpContext http)
     {
         var user = http.User;
+        // Fail closed: never share one "anonymous" context. Reject here as a backstop even
+        // though the authorization fallback policy (below) already turns anonymous callers away.
         if (user.Identity?.IsAuthenticated != true)
-        {
-            // Fail closed: an anonymous context should resolve to no data in the providers.
-            return new RVUserContext("anonymous", new Dictionary<string, object>());
-        }
+            throw new UnauthorizedAccessException("Unauthenticated request.");
 
         var props = new Dictionary<string, object>
         {
-            ["TenantId"] = user.FindFirst("tenant_id")?.Value,
+            ["TenantId"] = user.FindFirst("tenant_id")?.Value
+                ?? throw new InvalidOperationException("Authenticated user has no tenant."),
             ["Role"]     = user.IsInRole("Admin") ? "Admin" : "User",
         };
         // Identity.Name can be null for an authenticated user; require a stable id claim.
@@ -55,7 +55,7 @@ app.MapControllers();   // or app.MapControllers().RequireAuthorization();
 
 Mark the app's own public endpoints (login, health checks) with `[AllowAnonymous]`.
 
-Node: `userContextProvider: (request) => new reveal.RVUserContext(request.user?.id, props)`, after the app's auth middleware has populated `request.user` (Passport, express-jwt). Mount the auth middleware before `app.use(..., reveal(...))`, and make sure it returns `401` when there is no user. `passport.authenticate(..., { session: false })` and `express-jwt` with `credentialsRequired: true` (the default) do; `passport.session()` alone, or `express-jwt` with `credentialsRequired: false`, only populate `request.user` and let anonymous requests through. If in doubt, add a guard:
+Node: `userContextProvider: (request) => new reveal.RVUserContext(stableIdOf(request.user), props)`, where `stableIdOf` throws when there is no user or the principal has no stable id (never default to `undefined` or a shared `"anonymous"`; see [assets/node-minimal](../assets/node-minimal)). It runs after the app's auth middleware has populated `request.user` (Passport, express-jwt). Mount the auth middleware before `app.use(..., reveal(...))`, and make sure it returns `401` when there is no user. `passport.authenticate(..., { session: false })` and `express-jwt` with `credentialsRequired: true` (the default) do; `passport.session()` alone, or `express-jwt` with `credentialsRequired: false`, only populate `request.user` and let anonymous requests through. If in doubt, add a guard:
 
 ```js
 const requireAuth = (req, res, next) => (req.user ? next() : res.sendStatus(401));

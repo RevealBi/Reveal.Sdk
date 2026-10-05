@@ -113,7 +113,7 @@ app.use(express.json());
 
 ## Dashboards
 
-By default dashboards load from a `dashboards` folder (lower case) in the **working directory** of the process, so start the server from the project root, or supply a `dashboardProvider`:
+By default dashboards load from a `dashboards` folder (lower case) in the **working directory** of the process, so start the server from the project root. **Do not rely on the built-in loader and saver in a real app:** on 2.2.1 they join the client's dashboard id into the path unchecked (`GET /DashboardFile/..%5c..%5cname` read `name.rdash` from outside the folder). Supply a `dashboardProvider` and a `dashboardStorageProvider` that validate the id ([assets/node-minimal](../assets/node-minimal) does both):
 
 ```js
 const fs = require("fs");
