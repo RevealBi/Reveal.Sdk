@@ -33,7 +33,7 @@ Always start here, even when the request is about something later in the list. A
 4. Allow the client origin in CORS for development.
 5. Run both and open the page from `http(s)://`, not `file://`.
 
-[assets/aspnet-minimal](assets/aspnet-minimal) and [assets/node-minimal](assets/node-minimal) are working starting points with a same-origin page. Adapt them into the customer's project rather than handing over a separate app, unless they asked for a standalone sample.
+[assets/aspnet-minimal](assets/aspnet-minimal) and [assets/node-minimal](assets/node-minimal) are working starting points with a same-origin page. Both reject unauthenticated Reveal requests by default; run them with `--anonymous-demo` (`dotnet run -- --anonymous-demo`, `npm run demo`) for a local, localhost-only first run, and wire in the app's real authentication before anything else. Adapt them into the customer's project rather than handing over a separate app, unless they asked for a standalone sample.
 
 If there is no `.rdash` yet, set `revealView.dashboard = new RVDashboard()` to open an empty dashboard, and give the view at least one data source (step 3) so the user can build visualizations.
 

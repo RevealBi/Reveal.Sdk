@@ -212,10 +212,12 @@ File-based items wrap a resource item that holds the file location. A `local:/<f
 ```cs
 // settings.LocalFileStoragePath = "Data";
 if (dataSourceItem is RVResourceBasedDataSourceItem fileItem
-    && fileItem.ResourceItem is RVLocalFileDataSourceItem local
-    && AllowedFiles.Contains(dataSourceItem.Id))
+    && fileItem.ResourceItem is RVLocalFileDataSourceItem local)
 {
-    local.Uri = $"local:/{dataSourceItem.Id}";
+    // Overwrite in both cases: leaving an unknown id alone keeps the client's path.
+    local.Uri = AllowedFiles.Contains(dataSourceItem.Id)
+        ? $"local:/{dataSourceItem.Id}"
+        : "local:/blocked-by-server";
 }
 ```
 

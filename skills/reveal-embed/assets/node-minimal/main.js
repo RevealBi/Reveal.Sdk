@@ -1,7 +1,11 @@
 // Minimal Express host for the Reveal SDK. Serves the Reveal endpoints and a same-origin
 // page from ./public, so the client needs no setBaseUrl.
 //
-//     npm install && npm start    ->  http://localhost:5111/
+//     npm install && npm run demo    ->  http://localhost:5111/
+//
+// `npm start` (node main.js) requires an authenticated user on every Reveal request and
+// answers 401 until the app's real authentication is added below. `npm run demo` passes
+// --anonymous-demo: anonymous access for a local first run, listening on localhost only.
 //
 // Start it from this folder: the default dashboards folder is ./dashboards relative to
 // the working directory. License: ~/.revealbi-sdk/license.key or REVEAL_LICENSE.
@@ -10,6 +14,8 @@ const path = require("path");
 const express = require("express");
 const cors = require("cors");
 const reveal = require("reveal-sdk-node");
+
+const anonymousDemo = process.argv.includes("--anonymous-demo");
 
 const app = express();
 
@@ -99,7 +105,19 @@ if (license) {
     revealOptions.license = license;
 }
 
-app.use("/", reveal(revealOptions));
+// Add the app's real authentication here (passport.authenticate(...), express-jwt) so it
+// sets request.user. It must run before the guard and before Reveal.
+// app.use(authenticate);
+
+// Fail closed: authentication middleware only identifies the caller; this rejects anyone
+// it did not identify.
+const requireAuth = (req, res, next) => (req.user || anonymousDemo ? next() : res.sendStatus(401));
+
+app.use("/", requireAuth, reveal(revealOptions));
 
 const port = process.env.PORT || 5111;
-app.listen(port, () => console.log(`Reveal server on http://localhost:${port}/`));
+if (anonymousDemo) {
+    app.listen(port, "127.0.0.1", () => console.log(`Anonymous demo on http://localhost:${port}/ (local only)`));
+} else {
+    app.listen(port, () => console.log(`Reveal server on port ${port}`));
+}

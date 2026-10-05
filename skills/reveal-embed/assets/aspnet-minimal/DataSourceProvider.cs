@@ -63,6 +63,9 @@ public class DataSourceProvider : IRVDataSourceProvider
         // file Uri built only from known ids (see references/data-sources.md, "Files").
         switch (dataSourceItem)
         {
+#pragma warning disable CS0618 // Deprecated, but a request can still set it, so overwrite it too.
+            case RVRESTDataSourceItem rest: rest.Url = BlockedUrl; break;
+#pragma warning restore CS0618
             case RVWebResourceDataSourceItem web: web.Url = BlockedUrl; break;
             case RVODataDataSourceItem odata: odata.Url = BlockedUrl; break;
             case RVLocalFileDataSourceItem local: local.Uri = BlockedFile; break;
