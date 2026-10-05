@@ -193,7 +193,7 @@ item.ProcedureParameters = new Dictionary<string, object> { ["@CustomerID"] = cu
 
 **Parameter keys include the `@`**, exactly as written in the query: `{ "@tenantId": 5 }`, not `{ tenantId: 5 }`. Without it the widget fails with `Missing value for custom query parameter: @tenantId`. Reveal returns that error as HTTP 200 with an `error` object in the body, so check response bodies, not status codes (verified on Node 2.2.1, Postgres). Node property names are camelCase: `item.customQuery`, `item.customQueryParameters`.
 
-`CustomQueryParameters` is supported on SQL Server, Azure SQL, Synapse, PostgreSQL, MySQL, MariaDB (not on Java), Snowflake, BigQuery, Databricks, Athena, Redshift, ClickHouse and Elasticsearch. DuckDB, SQLite and Oracle support `CustomQuery` but **not** parameters; there, validate and whitelist any value before it reaches the query, or use a view per case.
+`CustomQueryParameters` is supported on SQL Server, Azure SQL, Synapse, PostgreSQL, MySQL, MariaDB (not on Java), Oracle, SQLite, DuckDB, Snowflake, BigQuery, Databricks, Athena, Redshift, ClickHouse and Elasticsearch (docs topic `custom-queries`). Use parameters instead of putting values into the query text. Only for MariaDB on Java, validate and allow-list any value before it reaches the query, or use a view per case.
 
 Grid paging is disabled when the item is a stored procedure.
 

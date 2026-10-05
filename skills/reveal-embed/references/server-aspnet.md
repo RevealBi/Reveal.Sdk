@@ -8,7 +8,7 @@ Requires ASP.NET 8.0 or later. Source: https://help.revealbi.io/web/install-serv
 dotnet add package Reveal.Sdk.AspNetCore
 ```
 
-Trial users can use `Reveal.Sdk.Web.AspNetCore.Trial` from nuget.org instead.
+The same package serves trial and licensed use; only the license configuration differs (see production.md). Do not use the old `Reveal.Sdk.Web.AspNetCore.Trial` package: it stopped at 1.3.0 and does not match the 2.x client.
 
 `AddReveal()` hangs off the MVC builder the app already has: `AddControllers()`, `AddControllersWithViews()`, `AddRazorPages()` or `AddMvc()`. The endpoints are served by controllers, so the app must call `app.MapControllers()` (or the Razor Pages / MVC equivalent that maps controllers).
 
