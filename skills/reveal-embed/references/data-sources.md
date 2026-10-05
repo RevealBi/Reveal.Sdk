@@ -114,6 +114,11 @@ const dataSourceItemProvider = async (userContext, item) => {
     item.processDataOnServer = true;
     return item;
   }
+  // There is no safe default here: returning null (or throwing) runs the client's item
+  // unchanged, with whatever host, URL or file path it names (see below). Add a branch like
+  // the one above for every connector type the app enables (REST: overwrite the URL from
+  // server config; files: resolve the URI from an allow-list), and enable no others.
+  console.error(`Unhandled data source item type: ${item.constructor.name}`);
   return null;
 };
 ```
@@ -127,6 +132,7 @@ Returning `null` from the item provider, or throwing, does **not** block the req
 - **Credentials only for your own database.** In the authentication provider, return a credential only when the data source's host, port and database equal your configured values; otherwise return `null`. This is the control that keeps the password from going to a host named in a request.
 - **Do not reject database items with `null`.** Redirect them to your database and give unknown ones a query that returns no rows, as above.
 - Always overwrite host, port and database in the data source provider for your connector type, never only for known ids.
+- **Handle every connector type you enable.** A fallthrough `null` is not a fail-closed default: a REST or local-file item that reaches it keeps the URL or path the client chose. Give each enabled type its own branch that overwrites the location with a server-controlled value, and do not register connectors the app does not use.
 
 ### Per-tenant or per-user databases
 

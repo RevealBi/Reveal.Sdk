@@ -33,7 +33,11 @@ public class UserContextProvider : IRVUserContextProvider
             ["TenantId"] = user.FindFirst("tenant_id")?.Value,
             ["Role"]     = user.IsInRole("Admin") ? "Admin" : "User",
         };
-        return new RVUserContext(user.Identity.Name, props);
+        // Identity.Name can be null for an authenticated user; require a stable id claim.
+        var userId = user.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
+            ?? user.FindFirst("sub")?.Value
+            ?? throw new InvalidOperationException("Authenticated user has no stable identifier.");
+        return new RVUserContext(userId, props);
     }
 }
 ```

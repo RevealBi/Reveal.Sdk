@@ -37,7 +37,13 @@ ServletRegistrationBean<RevealEngineServlet> revealServlet() {
             .setDashboardProvider(new RVDashboardProvider(Paths.get("Dashboards").toAbsolutePath().toString()))
             .setDataSourceProvider(new DataSourceProvider())
             .setAuthenticationProvider(new AuthenticationProvider())
-            .addSettings(settings -> settings.setLicense(System.getenv("REVEAL_LICENSE")))
+            .addSettings(settings -> {
+                // Only set a non-blank key; an empty one disables the license file fallback.
+                String license = System.getenv("REVEAL_LICENSE");
+                if (license != null && !license.isBlank()) {
+                    settings.setLicense(license);
+                }
+            })
             .build(),
         request -> new RVUserContext(userIdFrom(request), propertiesFrom(request)));
 

@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using Reveal.Sdk;
 
 /// <summary>
@@ -12,7 +13,13 @@ public class UserContextProvider : IRVUserContextProvider
     public IRVUserContext GetUserContext(HttpContext httpContext)
     {
         var user = httpContext.User;
-        var userId = user.Identity?.IsAuthenticated == true ? user.Identity.Name! : "anonymous";
+        // Use a stable identifier claim, not Identity.Name (which can be null), and fail
+        // closed if an authenticated principal has none.
+        var userId = user.Identity?.IsAuthenticated == true
+            ? user.FindFirst(ClaimTypes.NameIdentifier)?.Value
+                ?? user.FindFirst("sub")?.Value
+                ?? throw new InvalidOperationException("Authenticated user has no stable identifier.")
+            : "anonymous";
 
         var properties = new Dictionary<string, object>();
         // Example: carry a tenant claim through to the data source provider.

@@ -13,9 +13,11 @@ const reveal = require("reveal-sdk-node");
 
 const app = express();
 
-// Only needed when the front end is served from another origin. Restrict in production:
-// cors({ origin: "https://app.example.com" })
-app.use(cors());
+// Only needed when the front end is served from another origin. Opt in by setting
+// CLIENT_ORIGIN (e.g. https://app.example.com); never allow every origin.
+if (process.env.CLIENT_ORIGIN) {
+    app.use(cors({ origin: process.env.CLIENT_ORIGIN }));
+}
 
 app.use(express.static(path.join(__dirname, "public")));
 

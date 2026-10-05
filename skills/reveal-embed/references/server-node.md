@@ -17,7 +17,8 @@ const cors = require("cors");
 const reveal = require("reveal-sdk-node");
 
 const app = express();
-app.use(cors()); // development only; pass { origin: "https://app.example.com" } in production
+// Only when the client is on another origin; never allow every origin.
+if (process.env.CLIENT_ORIGIN) app.use(cors({ origin: process.env.CLIENT_ORIGIN }));
 
 const revealOptions = {
     // license: see below; omit it to use ~/.revealbi-sdk/license.key
@@ -47,7 +48,7 @@ import cors from "cors";
 import reveal, { RevealOptions } from "reveal-sdk-node";
 
 const app: Application = express();
-app.use(cors());
+if (process.env.CLIENT_ORIGIN) app.use(cors({ origin: process.env.CLIENT_ORIGIN }));
 
 const revealOptions: RevealOptions = { /* same keys as above */ };
 app.use("/", reveal(revealOptions));
@@ -108,11 +109,14 @@ By default dashboards load from a `dashboards` folder (lower case) in the **work
 const fs = require("fs");
 const path = require("path");
 
-const dashboardProvider = async (userContext, dashboardId) =>
-    fs.createReadStream(path.join(__dirname, "dashboards", `${dashboardId}.rdash`));
+const dashboardProvider = async (userContext, dashboardId) => {
+    // dashboardId comes from the client: reject anything that could escape the folder.
+    if (!/^[A-Za-z0-9_-]+$/.test(dashboardId)) return null;
+    return fs.createReadStream(path.join(__dirname, "dashboards", `${dashboardId}.rdash`));
+};
 ```
 
-Validate `dashboardId` before building a path from it (see dashboards.md).
+Always validate `dashboardId` before building a path from it (see dashboards.md).
 
 ## Node-specific limits
 

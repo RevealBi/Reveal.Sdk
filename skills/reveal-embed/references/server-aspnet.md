@@ -20,7 +20,12 @@ builder.Services.AddControllers().AddReveal(revealBuilder =>
     revealBuilder.AddSettings(settings =>
     {
         // Prefer configuration over a literal; see production.md for the license file option.
-        settings.License = builder.Configuration["Reveal:License"];
+        // Only assign a non-blank value; an empty one is an invalid key and disables the file fallback.
+        var license = builder.Configuration["Reveal:License"];
+        if (!string.IsNullOrWhiteSpace(license))
+        {
+            settings.License = license;
+        }
     });
 
     // Connectors shipped as separate packages must be registered, not just referenced.
