@@ -64,6 +64,7 @@ builder.Services.AddControllers().AddReveal(reveal =>
 
     reveal.AddUserContextProvider<UserContextProvider>();
     reveal.AddDataSourceProvider<DataSourceProvider>();
+    reveal.AddDashboardProvider<DashboardProvider>();
 });
 
 // Only needed when the front end is served from another origin (e.g. an Angular or

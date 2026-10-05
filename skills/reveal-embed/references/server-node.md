@@ -18,6 +18,8 @@ const reveal = require("reveal-sdk-node");
 
 const app = express();
 // Only when the client is on another origin; never allow every origin.
+// This form supports bearer-token (Authorization header) auth. For cross-origin cookie auth also pass
+// `credentials: true` (never with a wildcard origin) and make the client send cookies; same-origin hosting avoids both.
 if (process.env.CLIENT_ORIGIN) app.use(cors({ origin: process.env.CLIENT_ORIGIN }));
 
 const revealOptions = {
@@ -57,7 +59,7 @@ import cors from "cors";
 import reveal, { RevealOptions } from "reveal-sdk-node";
 
 const app: Application = express();
-if (process.env.CLIENT_ORIGIN) app.use(cors({ origin: process.env.CLIENT_ORIGIN }));
+if (process.env.CLIENT_ORIGIN) app.use(cors({ origin: process.env.CLIENT_ORIGIN })); // + credentials: true for cookie auth
 
 const revealOptions: RevealOptions = { /* same keys as above */ };
 // requireAuth as defined above, after the app's authentication middleware.
@@ -113,7 +115,7 @@ app.use(express.json());
 
 ## Dashboards
 
-By default dashboards load from a `dashboards` folder (lower case) in the **working directory** of the process, so start the server from the project root. **Do not rely on the built-in loader and saver in a real app:** on 2.2.1 they join the client's dashboard id into the path unchecked (`GET /DashboardFile/..%5c..%5cname` read `name.rdash` from outside the folder). Supply a `dashboardProvider` and a `dashboardStorageProvider` that validate the id ([assets/node-minimal](../assets/node-minimal) does both):
+By default dashboards load from a `dashboards` folder (lower case) in the **working directory** of the process, so start the server from the project root. **Do not rely on the built-in loader and saver in a real app:** on 2.2.1 they join the client's dashboard id into the path unchecked (`GET /DashboardFile/..%5c..%5cname` read `name.rdash` from outside the folder). Supply a `dashboardProvider` and a `dashboardStorageProvider` that validate the id **and decide who may read or write which dashboard** ([assets/node-minimal](../assets/node-minimal) does both: shared dashboards are read-only, each user saves into their own folder):
 
 ```js
 const fs = require("fs");
@@ -122,6 +124,8 @@ const path = require("path");
 const dashboardProvider = async (userContext, dashboardId) => {
     // dashboardId comes from the client: reject anything that could escape the folder.
     if (!/^[A-Za-z0-9_-]+$/.test(dashboardId)) return null;
+    // Also check that userContext may read this dashboard (tenant or owner), then pair this with a
+    // dashboardStorageProvider that checks write access. The default saver lets any caller overwrite any dashboard.
     return fs.createReadStream(path.join(__dirname, "dashboards", `${dashboardId}.rdash`));
 };
 ```

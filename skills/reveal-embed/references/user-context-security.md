@@ -76,7 +76,7 @@ RevealSdkSettings.setAdditionalHeadersProvider((url) => ({
 
 The server validates the token as it does for any other API call, then the user context provider reads the validated claims.
 
-Cookie-based auth works without this when the client and server share an origin. Cross-origin cookies need a CORS policy with credentials and named origins.
+Cookie-based auth works without this when the client and server share an origin. Cross-origin cookies need a CORS policy with credentials (`AllowCredentials()` in ASP.NET, `credentials: true` in the Node `cors` options) and named origins, and the client must send cookies on its cross-origin requests. Prefer same-origin hosting or a bearer token; check the docs for the client-side option before relying on cross-origin cookies.
 
 ## What must not be trusted
 
@@ -105,6 +105,7 @@ The dashboard provider also receives the user context. Use it to load from a per
 ## Checklist
 
 - [ ] Reveal endpoints require authentication like the rest of the API
+- [ ] Dashboard load and save are authorized per user or tenant, not just per authenticated session (the default providers let any signed-in user read and overwrite every dashboard)
 - [ ] User id, tenant and role are read from validated claims, not client-chosen headers
 - [ ] Every data path is restricted server-side (database, parameterized query, procedure or DB RLS), not only by `IRVObjectFilter`
 - [ ] No string concatenation of user values into SQL

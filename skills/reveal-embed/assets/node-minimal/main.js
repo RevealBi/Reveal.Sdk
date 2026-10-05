@@ -7,9 +7,11 @@
 // answers 401 until the app's real authentication is added below. `npm run demo` passes
 // --anonymous-demo: anonymous access for a local first run, listening on localhost only.
 //
+// Dashboards in ./dashboards are shared and read-only; each user saves into their own folder.
 // Start it from this folder: the default dashboards folder is ./dashboards relative to
 // the working directory. License: ~/.revealbi-sdk/license.key or REVEAL_LICENSE.
 
+const crypto = require("crypto");
 const fs = require("fs");
 const path = require("path");
 const { pipeline } = require("stream/promises");
@@ -107,21 +109,32 @@ const dataSourceItemProvider = async (userContext, dataSourceItem) => {
 };
 
 // The built-in dashboard loading and saving join the client's dashboard id into a path
-// without checking it (an id with ..%5c escapes the folder on 2.2.1), so use explicit ones.
+// without checking it (an id with ..%5c escapes the folder on 2.2.1), and let any caller
+// overwrite any dashboard. So: dashboards/ holds shared, read-only dashboards, and every
+// user saves into a private folder keyed by their id. A user can read the shared ones and
+// their own, and can never write to (or read) anyone else's. Replace with the app's own
+// storage and rules (tenants, sharing) when it needs them.
 const DASHBOARDS_DIR = path.join(process.cwd(), "dashboards");
 const VALID_ID = /^[A-Za-z0-9_-]{1,100}$/;
-const dashboardPath = (id) => (VALID_ID.test(id) ? path.join(DASHBOARDS_DIR, `${id}.rdash`) : null);
+
+const userFolder = (userContext) =>
+    path.join(DASHBOARDS_DIR, "users", crypto.createHash("sha256").update(String(userContext.userId)).digest("hex"));
 
 const dashboardProvider = async (userContext, dashboardId) => {
-    const file = dashboardPath(dashboardId);
-    return file && fs.existsSync(file) ? fs.createReadStream(file) : null;
+    if (!VALID_ID.test(dashboardId)) return null;
+    const file = `${dashboardId}.rdash`;
+    for (const dir of [userFolder(userContext), DASHBOARDS_DIR]) {
+        const candidate = path.join(dir, file);
+        if (fs.existsSync(candidate)) return fs.createReadStream(candidate);
+    }
+    return null;
 };
 
 const dashboardStorageProvider = async (userContext, dashboardId, stream) => {
-    const file = dashboardPath(dashboardId);
-    if (!file) throw new Error("Invalid dashboard id");
-    // Add a per-user check here before anyone can overwrite a dashboard.
-    await pipeline(stream, fs.createWriteStream(file));
+    if (!VALID_ID.test(dashboardId)) throw new Error("Invalid dashboard id");
+    const dir = userFolder(userContext);
+    fs.mkdirSync(dir, { recursive: true });
+    await pipeline(stream, fs.createWriteStream(path.join(dir, `${dashboardId}.rdash`)));
 };
 
 const revealOptions = {
