@@ -76,7 +76,7 @@ Pick the strongest one the data source allows:
 | Database-enforced RLS | Per-user credentials in the authentication provider, or session context set by a procedure, and let the database filter | Good when the database already has RLS policies. |
 | Hide items from the list | `IRVObjectFilter` | UX only. It must be combined with one of the above. |
 
-Always replace the table or query the dashboard asked for with the server's own, by item id. If the provider only rewrites known ids, an unknown id must not fall through to an unfiltered table. Return `null` or a safe empty item.
+Always replace the table or query the dashboard asked for with the server's own, by item id. If the provider only rewrites known ids, an unknown id must not fall through to an unfiltered table. Do **not** use `null` for that: returning `null` (or throwing) makes Reveal run the item as the client sent it, against the client-supplied host. Redirect it to your database with a query that returns no rows, and have the authentication provider release credentials only for your own host and database (see data-sources.md, "Rejecting an item does not stop the query").
 
 ## Dashboards per user or tenant
 

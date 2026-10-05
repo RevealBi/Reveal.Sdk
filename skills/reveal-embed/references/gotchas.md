@@ -1,6 +1,8 @@
 # Symptom → cause
 
-Each of these looks like an SDK defect and is a setup cause. Match the symptom, fix the setup and retest before escalating. Ask for the browser console, the failing request in the network tab, and the server log.
+Each of these looks like an SDK defect and is a setup cause. Match the symptom, fix the setup and retest before escalating. Ask for the browser console, the failing request in the network tab (read the **response body**: widget failures often come back as HTTP 200 with an `error` object), and the server log.
+
+**On Node there is no server log until you turn it on.** The Node console shows nothing for engine errors and the client gets only `Something went wrong. Correlation Id: ...`. Set `engineLogDir` (and `engineLogLevel: "Debug"`) in `RevealOptions`, reproduce, and search `reveal-engine.log` for the correlation id. On ASP.NET, the app's normal logging includes Reveal.
 
 ## Nothing renders
 
@@ -8,7 +10,11 @@ Each of these looks like an SDK defect and is a setup cause. Match the symptom, 
 
 **CORS error in the console, or requests going to the wrong host.** The client and server are on different origins and either `setBaseUrl` is missing (requests go to the client's origin and 404) or the server has no CORS policy for the client's origin. If the server mounts Reveal under a prefix (`/reveal-api/`), the base URL must include it, with a trailing slash. Fix both sides.
 
-**Node: the view opens an empty "New Dashboard" and the network tab shows `400` on `.../DashboardFile/<id>`.** Reveal is mounted with `app.use("/prefix/", reveal(...))` **and** `basePath` is set too. Remove `basePath`.
+**Node: the network tab shows `400` on `.../DashboardFile/<id>`; the page shows an error or an empty "New Dashboard".** Reveal is mounted with `app.use("/prefix/", reveal(...))` **and** `basePath` is set too. Remove `basePath`.
+
+**Node: the dashboard title loads, then every widget spins and fails with `500 Something went wrong. Correlation Id: ...`.** A body parser (`express.json()`, `express.urlencoded()`, `body-parser`) runs before the Reveal mount and consumes the request body Reveal streams to its engine. The engine log shows `Reading the request body timed out due to data arriving too slowly`. Mount Reveal before the parsers, or scope them to the app's routes (see server-node.md).
+
+**Node, ESM or TypeScript with `NodeNext`: `RVUserContext is not a constructor`, `Cannot read properties of undefined`, or `tsc`: "This expression is not callable" on `reveal(...)`.** `reveal-sdk-node` is CommonJS; in ES modules its named class exports are `undefined`. Take the classes from the default import (see server-node.md).
 
 **Module import fails when the page is opened directly.** ES module imports are blocked on `file://`. Serve the page from a local web server or the app.
 
@@ -22,6 +28,8 @@ Each of these looks like an SDK defect and is a setup cause. Match the symptom, 
 
 ## License
 
+**Node: `The license key is missing or has expired. Engine failed to start`, then `Engine exited abnormally`, while a key file exists.** The `license` option is set to an empty string, usually `license: process.env.REVEAL_LICENSE` with `REVEAL_LICENSE=` in `.env`. An empty value overrides the key file. Pass `license` only when the value is non-empty.
+
 **Watermark, or "license" errors at startup.** The key is not where the **running process** looks: `~/.revealbi-sdk/license.key` of the service account, not the developer. Or the file contains more than the raw key. Or a NuGet cache holds a stale package (clear the Reveal packages and reinstall).
 
 ## Data
@@ -29,9 +37,12 @@ Each of these looks like an SDK defect and is a setup cause. Match the symptom, 
 **"The data source is of an unknown type ('SQLSERVER')" (or another type).** The connector package is referenced but not registered. Call `revealBuilder.DataSources.RegisterMicrosoftSqlServer()` (or `RegisterXxx` for the connector).
 
 **Widget loads empty, or the item cannot be resolved.** The data source provider did not fill in the item. Common causes:
-- Host and database set in `ChangeDataSourceAsync` only. The item's own data source is a separate object, so call `ChangeDataSourceAsync(userContext, item.DataSource)` inside `ChangeDataSourceItemAsync`.
-- The provider matches on an item id that differs from the id the dashboard stored. Log the incoming `dataSourceItem.Id` and `dashboardId`.
+- Host and database set in `ChangeDataSourceAsync` only. The item's own data source is a separate object, so call `ChangeDataSourceAsync(userContext, item.DataSource)` inside `ChangeDataSourceItemAsync`. This often shows up as "password authentication failed" or "login failed" for the app's own database user, because its credentials go to the host stored in the dashboard.
+- The provider matches on an item id that differs from the id the dashboard stored. Dashboards built in Reveal BI or generated store GUID item ids; match on the table instead (see data-sources.md). Log the incoming item id and table.
+- `Missing value for custom query parameter: @x`: the parameter dictionary key lacks the `@` (`{ "@x": value }`).
 - A local file that is not where `local:/` resolves. The widget shows "File not found: Data\<file>": on ASP.NET the default folder is `Data` under the working directory; on Node 2.2.1 it is `C:\Reveal\Files` unless the `localFileStoragePath` option is set. Set it explicitly on both. Also check the file is copied to the publish output.
+
+**`password authentication failed` / `login failed` / `Failed to connect to <some host>` for a widget whose item your provider rejected.** Returning `null` or throwing from the item provider does not stop the query: Reveal falls back to the data source exactly as the client sent it. Redirect unknown items to your database with an empty query instead, and only release credentials for your own host (see data-sources.md).
 
 **Login failed for the database.** No authentication provider, or it returns `null` for that data source type. Return a credential (`RVUsernamePasswordDataSourceCredential`, `RVBearerTokenDataSourceCredential`, `RVIntegratedAuthenticationCredential`).
 

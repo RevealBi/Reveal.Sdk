@@ -92,7 +92,41 @@ public class DataSourceProvider : IRVDataSourceProvider
 
 Providers registered with `AddDataSourceProvider<T>()` are created by DI, so constructor-inject configuration and services. On Node the same logic is two functions, `dataSourceProvider` and `dataSourceItemProvider`. On Java it is `changeDataSource` and `changeDataSourceItem`.
 
-**Always update the underlying data source inside `ChangeDataSourceItemAsync`.** This is the most common provider bug: the host is set in `ChangeDataSourceAsync`, but the item's query still goes to the old host.
+**Always update the underlying data source inside `ChangeDataSourceItemAsync`.** This is the most common provider bug: the host is set in `ChangeDataSourceAsync`, but the item's query still goes to the old host. Typical symptom: database widgets fail with an authentication or connection error naming the app's own user (for Postgres, `28P01: password authentication failed for user "<app user>"`), because the app's credentials are sent to the host stored in the dashboard. It looks like a credentials bug; it is a redirect bug (verified on Node 2.2.1).
+
+### Matching items: ids vs tables
+
+Match on `item.Id` only for items your own app defines in `onDataSourcesRequested`, where you chose the ids. A dashboard built in Reveal BI, by an analyst, or generated with the DOM stores **generated GUIDs** as item ids, and the same table can appear under several ids. For those, key on what the item points at (`Table`, plus `Schema` or `Database` if relevant) through an allow-list, and replace it with the server's own query:
+
+```js
+// Node
+const TENANT_QUERIES = {
+  orders: "SELECT id, tenant_id, order_date, status, total_amount FROM orders WHERE tenant_id = @tenant_id",
+};
+
+const dataSourceItemProvider = async (userContext, item) => {
+  if (item instanceof RVPostgresDataSourceItem) {
+    await dataSourceProvider(userContext, item.dataSource);     // redirect the item's own data source
+    const query = TENANT_QUERIES[item.table];
+    // Unknown table: keep it on our database with a query that returns nothing (see below).
+    item.customQuery = query ?? "SELECT NULL::int AS id WHERE false";
+    item.customQueryParameters = query ? { "@tenant_id": tenantIdFrom(userContext) } : {};
+    item.processDataOnServer = true;
+    return item;
+  }
+  return null;
+};
+```
+
+Open the `.rdash` (a zip with `Dashboard.json`) to see which tables and data source ids it uses before writing the allow-list.
+
+### Rejecting an item does not stop the query
+
+Returning `null` from the item provider, or throwing, does **not** block the request (verified on Node 2.2.1). Reveal then runs the item exactly as the client sent it, with the client-supplied host, port and database, discards your changes to `item.dataSource`, and asks the authentication provider for credentials for that host. A request can name any host. So:
+
+- **Credentials only for your own database.** In the authentication provider, return a credential only when the data source's host, port and database equal your configured values; otherwise return `null`. This is the control that keeps the password from going to a host named in a request.
+- **Do not reject database items with `null`.** Redirect them to your database and give unknown ones a query that returns no rows, as above.
+- Always overwrite host, port and database in the data source provider for your connector type, never only for known ids.
 
 ### Per-tenant or per-user databases
 
@@ -109,7 +143,8 @@ public class AuthenticationProvider : IRVAuthenticationProvider
     {
         IRVDataSourceCredential credential = dataSource switch
         {
-            RVSqlServerDataSource => new RVUsernamePasswordDataSourceCredential(user, password),       // optional third arg: domain
+            // Only for our own server: a request can name any host (see "Rejecting an item" above).
+            RVSqlServerDataSource sql when IsOurDatabase(sql) => new RVUsernamePasswordDataSourceCredential(user, password), // optional third arg: domain
             RVRESTDataSource      => new RVBearerTokenDataSourceCredential(token, userId),
             _ => null
         };
@@ -135,6 +170,8 @@ item.CustomQueryParameters = new Dictionary<string, object> { ["@tenantId"] = te
 item.Procedure = "OrdersByCustomer";
 item.ProcedureParameters = new Dictionary<string, object> { ["@CustomerID"] = customerId };
 ```
+
+**Parameter keys include the `@`**, exactly as written in the query: `{ "@tenantId": 5 }`, not `{ tenantId: 5 }`. Without it the widget fails with `Missing value for custom query parameter: @tenantId`. Reveal returns that error as HTTP 200 with an `error` object in the body, so check response bodies, not status codes (verified on Node 2.2.1, Postgres). Node property names are camelCase: `item.customQuery`, `item.customQueryParameters`.
 
 `CustomQueryParameters` is supported on SQL Server, Azure SQL, Synapse, PostgreSQL, MySQL, MariaDB (not on Java), Snowflake, BigQuery, Databricks, Athena, Redshift, ClickHouse and Elasticsearch. DuckDB, SQLite and Oracle support `CustomQuery` but **not** parameters; there, validate and whitelist any value before it reaches the query, or use a view per case.
 

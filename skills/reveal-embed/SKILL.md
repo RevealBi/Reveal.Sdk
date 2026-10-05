@@ -1,6 +1,6 @@
 ---
 name: reveal-embed
-description: Helps a developer embed Reveal BI dashboards into their own application with the Reveal SDK - standing up the Reveal server (ASP.NET Core, Node.js/Express, Java/Spring Boot/Tomcat), adding the client RevealView (plain HTML/JS, Angular, React, Vue, web component wrappers), connecting data sources (SQL Server, Postgres, Snowflake, REST, Excel/CSV, in-memory and others), passing the signed-in user through user context for row-level security and multi-tenancy, data source credentials, loading/saving/creating dashboards, theming, export, licensing and going to production. Use whenever someone asks how to add, integrate, embed, set up, configure, secure or deploy Reveal or the Reveal SDK in their app, or reports that an embedded RevealView is blank, unstyled, watermarked, failing CORS, failing export, showing no data or ignoring paging.
+description: For the Reveal SDK (Reveal BI, revealbi.io) only - helps a developer embed Reveal dashboards into their own application: standing up the Reveal server (ASP.NET Core, Node.js/Express, Java/Spring Boot/Tomcat), adding the client RevealView (plain HTML/JS, Angular, React, Vue, web component wrappers), connecting data sources (SQL Server, Postgres, Snowflake, REST, Excel/CSV, in-memory and others), passing the signed-in user through user context for row-level security and multi-tenancy, data source credentials, loading/saving/creating dashboards, theming, export, licensing and going to production. Use whenever someone asks how to add, integrate, embed, set up, configure, secure or deploy Reveal or the Reveal SDK in their app, or reports that an embedded RevealView is blank, unstyled, watermarked, failing CORS, failing export, showing no data or ignoring paging. Not for other BI or charting products (Power BI, Tableau, Metabase, Grafana, Chart.js).
 ---
 
 # Embedding Reveal in an application
@@ -13,7 +13,7 @@ Find these out from the codebase if there is one (look for `*.csproj`, `package.
 
 | Question | Why it matters |
 | --- | --- |
-| Server stack: ASP.NET Core, Node.js (JS or TS, Express or NestJS), or Java (Spring Boot or a Jakarta EE 9 container) | Decides package, registration API and provider signatures. Read the matching `references/server-*.md`. |
+| Server stack: ASP.NET Core, Node.js (JS or TS, Express or NestJS), or Java (Spring Boot or a Jakarta EE 9 container) | Decides package, registration API and provider signatures. Read the matching `references/server-*.md`. On Node, also note CommonJS vs ES modules (`"type"` in `package.json`, `"module"` in `tsconfig.json`): it changes how `reveal-sdk-node` must be imported. |
 | Client stack: plain HTML, Angular, React, Vue, other | Decides how to load `reveal-sdk` and where to create the `RevealView`. Read [client.md](references/client.md). |
 | Same origin or separate origins for client and server | Separate origins need `RevealSdkSettings.setBaseUrl` **and** a CORS policy on the server. |
 | Where the data lives | Decides the connector package and the data source provider. Read [data-sources.md](references/data-sources.md). |
@@ -27,7 +27,7 @@ System requirements: ASP.NET 8.0+; Java 17+ with a Jakarta EE 9 server and Maven
 
 Always start here, even when the request is about something later in the list. A rendering `RevealView` proves the package, license, routing, CORS and base URL all work, so every later problem is narrowed to the feature being added.
 
-1. Install the server package and register Reveal (see the `server-*` reference).
+1. Install the server package and register Reveal (see the `server-*` reference). In an existing Express app, mount Reveal **before** any body parser (`express.json()` and friends), behind the app's auth middleware.
 2. Put one `.rdash` in the dashboards folder: `Dashboards/` for ASP.NET, `dashboards/` for Node, an explicit path given to `RVDashboardProvider` for Java. The dashboard id the client asks for is the file name without `.rdash`.
 3. Add the client: install `reveal-sdk` (or load it from a CDN), give the host element a real height, call `setBaseUrl` if the origins differ, then `RVDashboard.loadDashboard("Name")` and assign it to `new RevealView(element).dashboard`.
 4. Allow the client origin in CORS for development.
@@ -49,12 +49,13 @@ If there is no `.rdash` yet, set `revealView.dashboard = new RVDashboard()` to o
 
 ## 4. When something does not work
 
-Read [gotchas.md](references/gotchas.md) before calling anything an SDK bug. A blank view, a watermark, "unknown type", empty widgets, paging that does not page, a bare "Export failed", and themes or fonts that do not apply all have known setup causes listed there. Ask for the browser console, the network tab entry for the failing Reveal request, and the **server log**, since several failures surface only there.
+Read [gotchas.md](references/gotchas.md) before calling anything an SDK bug. A blank view, a watermark, "unknown type", empty widgets, paging that does not page, a bare "Export failed", and themes or fonts that do not apply all have known setup causes listed there. Ask for the browser console, the network tab entry for the failing Reveal request, and the **server log**, since several failures surface only there. On Node that log exists only once `engineLogDir` is set in `RevealOptions`; until then the client gets a bare correlation id and the console stays silent. Widget errors usually arrive as HTTP 200 with an `error` object, so read response bodies.
 
 ## Rules for the code you write
 
 - **Connection details, credentials and identity stay on the server.** Anything set on a client data source object is visible and editable in the browser. The client sends ids and titles; the server's data source provider fills in host, database, table, query and credentials.
 - **Identity comes from the server's own authentication**, not from a header the client chose. `setAdditionalHeadersProvider` is for forwarding the app's auth token or harmless UI state; treat every header value as untrusted input.
+- **Credentials only for your own database.** The authentication provider must check that the data source's host, port and database are your configured ones before returning a credential. Requests can name any host, and rejecting an item with `null` makes Reveal use the client's connection details as sent.
 - **Parameterize custom queries** with `CustomQueryParameters`. Never concatenate user context values into SQL.
 - **Keep CORS permissive only in development.** Production gets the explicit client origin.
 - **Pin versions.** Server package and client `reveal-sdk` should be the same release; pin the CDN URL to a version in production.
