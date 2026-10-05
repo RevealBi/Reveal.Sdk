@@ -26,8 +26,11 @@ Use one when dashboards live in a database, blob storage, a per-tenant folder, o
 ```cs
 public class DashboardProvider : IRVDashboardProvider
 {
+    private static readonly Regex ValidId = new("^[A-Za-z0-9_-]{1,100}$");
+
     public async Task<Dashboard> GetDashboardAsync(IRVUserContext userContext, string dashboardId)
     {
+        if (!ValidId.IsMatch(dashboardId)) throw new ArgumentException("Invalid dashboard id.");
         var tenant = TenantOf(userContext);                       // from validated claims
         var bytes = await _store.LoadAsync(tenant, dashboardId);  // null when missing or not allowed
         if (bytes is null) throw new FileNotFoundException(dashboardId);
@@ -36,6 +39,9 @@ public class DashboardProvider : IRVDashboardProvider
 
     public async Task SaveDashboardAsync(IRVUserContext userContext, string dashboardId, Dashboard dashboard)
     {
+        if (!ValidId.IsMatch(dashboardId)) throw new ArgumentException("Invalid dashboard id.");
+        // canEdit = false on the client only hides the UI; the save endpoint is still callable.
+        if (!CanEdit(userContext, dashboardId)) throw new UnauthorizedAccessException();
         var tenant = TenantOf(userContext);
         await _store.SaveAsync(tenant, dashboardId, dashboard.ToByteArray());
     }
@@ -44,7 +50,8 @@ public class DashboardProvider : IRVDashboardProvider
 
 - `Dashboard` (ASP.NET) can be constructed from a file path, a `Stream`, a `byte[]`, or `Dashboard.FromJsonString(json)`. It writes out with `SaveToFileAsync(path)`, `ToStream()`, `ToByteArray()` or `ToJsonString()`. `dashboard.GetInfo(id)` returns its title and other metadata, which is useful for a dashboard list.
 - **Validate `dashboardId`** before building a path or key from it (letters, digits, dashes; no `..`, `/` or `\`). It comes from the client.
-- Registering a custom provider replaces the default for both load **and** save. Implement both, or throw on save and set `canEdit = false`.
+- **Authorize saves on the server.** `canEdit` and `canSaveAs` are client UI settings; anyone holding a session can call the save endpoint directly. Check the user's right to write that dashboard in the provider (or in the app's own save API).
+- Registering a custom provider replaces the default for both load **and** save. Implement both, or make save throw for everyone (and also set `canEdit = false` so the UI matches).
 - Node: `dashboardProvider: async (userContext, dashboardId) => Readable | null` for loading, plus `dashboardStorageProvider: async (userContext, dashboardId, stream) => void` for saving. Java: `getDashboard` returns an `InputStream`, `saveDashboard` receives one.
 
 Listing dashboards (for a picker in the app) is not a Reveal endpoint. Add an app endpoint that lists the store. `RVDashboard.loadDashboard` is only for one by id. Thumbnails for a picker: docs topic `thumbnail-generation`.
@@ -100,7 +107,8 @@ revealView.onSave = async (rv, args) => {
 - `args.name` is the dashboard **title**. Keep the stored id and the title aligned, or the next Save writes under an unexpected id.
 - `args.isNew` is true for a dashboard created from `new RVDashboard()`. Its `dashboardId` is null until you set it, so treat its first Save like Save As.
 - `saveFinished()` must be called or the view stays in edit mode. On cancel or a failed request, deliberately do **not** call it: leaving edit mode would discard the user's unsaved changes. With `serverSideSave = false`, call it only after the app's API confirms the write.
-- To prevent saving: `canEdit = false` (no editing at all) or `canSaveAs = false` (no Save As).
+- With `serverSideSave = false`, the app's `PUT /api/dashboards/{id}` is an ordinary app endpoint: require authentication, validate the id, and check the user may write that dashboard, exactly as in the server provider above.
+- To hide saving in the UI: `canEdit = false` (no editing at all) or `canSaveAs = false` (no Save As). These are not access control; enforce it on the server as well.
 
 ## Creating new dashboards
 

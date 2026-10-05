@@ -86,7 +86,7 @@ Each of these looks like an SDK defect and is a setup cause. Match the symptom, 
 
 ## Saving
 
-**Save As does nothing, or the view stays in edit mode after Save.** Save As has no default implementation; handle `onSave`, and always call `args.saveFinished()`.
+**Save As does nothing, or the view stays in edit mode after Save.** Save As has no default implementation; handle `onSave`, and call `args.saveFinished()` once the save should go through. Skip it only on cancel or a failed request, which keeps the user in edit mode with their changes (see dashboards.md).
 
 **Save writes the dashboard under an unexpected name.** `args.name` is the dashboard title; set `args.dashboardId` explicitly.
 
