@@ -13,7 +13,13 @@ The same package serves trial and licensed use; only the license configuration d
 `AddReveal()` hangs off the MVC builder the app already has: `AddControllers()`, `AddControllersWithViews()`, `AddRazorPages()` or `AddMvc()`. The endpoints are served by controllers, so the app must call `app.MapControllers()` (or the Razor Pages / MVC equivalent that maps controllers).
 
 ```cs
+using Microsoft.AspNetCore.Authorization;
 using Reveal.Sdk;
+
+// Required: Reveal's controllers have no [Authorize], so without this they serve anonymous callers.
+// Also register the app's real authentication (AddAuthentication().AddJwtBearer(...), cookies, ...).
+builder.Services.AddAuthorization(o =>
+    o.FallbackPolicy = new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build());
 
 builder.Services.AddControllers().AddReveal(revealBuilder =>
 {
@@ -38,6 +44,11 @@ builder.Services.AddControllers().AddReveal(revealBuilder =>
     // revealBuilder.AddDashboardProvider<DashboardProvider>();
     // revealBuilder.AddObjectFilter<ObjectFilterProvider>();
 });
+
+var app = builder.Build();
+app.UseAuthentication();   // identifies the caller
+app.UseAuthorization();    // enforces the fallback policy above
+app.MapControllers();
 ```
 
 Every provider registration is optional. With none, Reveal loads `.rdash` files from a `Dashboards` folder in the working directory and saves back to it.

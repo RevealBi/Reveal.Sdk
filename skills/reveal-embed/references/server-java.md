@@ -55,13 +55,14 @@ ServletRegistrationBean<RevealEngineServlet> revealServlet() {
 ```
 
 - The second constructor argument builds the user context from the `HttpServletRequest`. Read the user from the app's existing security (Spring Security principal, session), not from a client-chosen header.
+- **Protect the endpoint; reading the principal does not reject anonymous callers.** Add an explicit rule, for example in Spring Security: `http.authorizeHttpRequests(a -> a.requestMatchers("/reveal-api/**").authenticated())` (or `.anyRequest().authenticated()`), and have `userIdFrom(request)` throw when `request.getUserPrincipal()` is null instead of falling back to a default id. Without Spring Security, add a `<security-constraint>` for `/reveal-api/*` in `web.xml` (or `@ServletSecurity` on a servlet subclass). Verify an unauthenticated request to `/reveal-api/` gets 401/403.
 - The mapping (`/reveal-api/*` here) must match the client's base URL: `RevealSdkSettings.setBaseUrl("https://host/reveal-api/")`. The getting-started sample maps `/*` so no base URL path is needed.
 - `setAsyncSupported(true)` is required.
 - **There is no default dashboards folder on Java.** Always set a dashboard provider; the built-in `RVDashboardProvider(path)` loads and saves `.rdash` files from that path.
 
 ## Tomcat (no Spring)
 
-Same builder, registered from a `ServletContextListener`:
+Same builder, registered from a `ServletContextListener`. Also add a `<security-constraint>` for `/reveal-api/*` in `web.xml` (with an `auth-constraint` role) so anonymous requests are rejected:
 
 ```java
 @WebListener

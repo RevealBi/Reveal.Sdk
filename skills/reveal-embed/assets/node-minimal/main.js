@@ -32,7 +32,19 @@ app.use(express.static(path.join(__dirname, "public")));
 const userContextProvider = (request) => {
     const props = new Map();
     // props.set("TenantId", request.user?.tenantId);
-    return new reveal.RVUserContext(request.user?.id ?? "anonymous", props);
+    if (request.user) {
+        // Fail closed: never fold a principal without a stable id into a shared context.
+        // Change `id` to the property your auth middleware sets (sub, userId, ...).
+        const id = request.user.id;
+        if (typeof id !== "string" && typeof id !== "number") {
+            throw new Error("Authenticated user has no stable id");
+        }
+        return new reveal.RVUserContext(String(id), props);
+    }
+    if (!anonymousDemo) {
+        throw new Error("Unauthenticated request");
+    }
+    return new reveal.RVUserContext("anonymous", props);
 };
 
 // The core connectors (REST, web resource, OData, local files) need no registration, so a

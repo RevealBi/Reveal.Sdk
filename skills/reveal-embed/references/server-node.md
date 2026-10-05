@@ -35,9 +35,17 @@ const revealOptions = {
 const license = process.env.REVEAL_LICENSE?.trim();
 if (license) revealOptions.license = license;
 
-app.use("/", reveal(revealOptions));
+// Required: the app's real authentication (passport.authenticate(...), express-jwt) must set req.user.
+// app.use(authenticate);
+
+// Fail closed: authentication only identifies the caller, this rejects anyone it did not identify.
+const requireAuth = (req, res, next) => (req.user ? next() : res.sendStatus(401));
+
+app.use("/", requireAuth, reveal(revealOptions));
 app.listen(5111);
 ```
+
+`userContextProvider` only derives the context. Make it throw when `request.user` has no stable id rather than mapping to a shared "anonymous" user (see [assets/node-minimal](../assets/node-minimal)).
 
 **License on Node:** with `license` omitted, the engine reads `~/.revealbi-sdk/license.key` of the account running the process, or runs as a trial. A `license` option that is present but empty makes 2.2.1 log `The license key is missing or has expired. Engine failed to start` and throw `Engine exited abnormally`, which can take down the whole Node process. Do not add an empty `REVEAL_LICENSE=` to a real `.env`; a commented line in `.env.example` is fine (verified on 2.2.1).
 
@@ -52,7 +60,8 @@ const app: Application = express();
 if (process.env.CLIENT_ORIGIN) app.use(cors({ origin: process.env.CLIENT_ORIGIN }));
 
 const revealOptions: RevealOptions = { /* same keys as above */ };
-app.use("/", reveal(revealOptions));
+// requireAuth as defined above, after the app's authentication middleware.
+app.use("/", requireAuth, reveal(revealOptions));
 app.listen(5111);
 ```
 
