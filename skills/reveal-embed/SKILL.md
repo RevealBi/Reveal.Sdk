@@ -55,7 +55,7 @@ Read [gotchas.md](references/gotchas.md) before calling anything an SDK bug. A b
 
 - **Connection details, credentials and identity stay on the server.** Anything set on a client data source object is visible and editable in the browser. The client sends ids and titles; the server's data source provider fills in host, database, table, query and credentials.
 - **Identity comes from the server's own authentication**, not from a header the client chose. `setAdditionalHeadersProvider` is for forwarding the app's auth token or harmless UI state; treat every header value as untrusted input.
-- **Credentials only for your own database.** The authentication provider must check that the data source's host, port and database are your configured ones before returning a credential. Requests can name any host, and rejecting an item with `null` makes Reveal use the client's connection details as sent.
+- **Credentials only for your own database or API.** The authentication provider must check that the data source's host, port and database (for REST, the URL's host) are your configured ones before returning a credential or token. Requests can name any host, and rejecting an item with `null` makes Reveal use the client's connection details as sent.
 - **Parameterize custom queries** with `CustomQueryParameters`. Never concatenate user context values into SQL.
 - **Keep CORS permissive only in development.** Production gets the explicit client origin.
 - **Pin versions.** Server package and client `reveal-sdk` should be the same release; pin the CDN URL to a version in production.

@@ -29,17 +29,44 @@ const userContextProvider = (request) => {
     return new reveal.RVUserContext(request.user?.id ?? "anonymous", props);
 };
 
+// The core connectors (REST, web resource, OData, local files) need no registration, so a
+// crafted request can point them at any URL or file path. Returning the item unchanged,
+// returning null and throwing all run it as sent, so until a location is mapped to a
+// server-controlled value it is overwritten with one that cannot resolve.
+const BLOCKED_URL = "https://blocked.invalid/"; // .invalid never resolves (RFC 2606)
+const BLOCKED_FILE = "local:/blocked-by-server";
+
 const dataSourceProvider = async (userContext, dataSource) => {
     // if (dataSource instanceof reveal.RVSqlServerDataSource) {
     //     dataSource.host = process.env.SQL_HOST;
     //     dataSource.database = process.env.SQL_DATABASE;
     // }
+
+    // Replace with URLs from configuration for the endpoints the app uses.
+    if (dataSource instanceof reveal.RVRESTDataSource
+        || dataSource instanceof reveal.RVWebResourceDataSource
+        || dataSource instanceof reveal.RVODataDataSource) {
+        dataSource.url = BLOCKED_URL;
+    }
     return dataSource;
 };
 
 const dataSourceItemProvider = async (userContext, dataSourceItem) => {
     // Required: the item carries its own copy of the data source.
     await dataSourceProvider(userContext, dataSourceItem.dataSource);
+
+    // Locations the request chose. Replace with server-side allow-lists, e.g. a local file
+    // uri built only from known ids (see references/data-sources.md, "Files").
+    if (dataSourceItem instanceof reveal.RVRESTDataSourceItem
+        || dataSourceItem instanceof reveal.RVWebResourceDataSourceItem
+        || dataSourceItem instanceof reveal.RVODataDataSourceItem) {
+        dataSourceItem.url = BLOCKED_URL;
+    } else if (dataSourceItem instanceof reveal.RVLocalFileDataSourceItem) {
+        dataSourceItem.uri = BLOCKED_FILE;
+    } else if (dataSourceItem instanceof reveal.RVResourceBasedDataSourceItem && dataSourceItem.resourceItem) {
+        // Excel, CSV and JSON items wrap the REST, web or local file item that holds the location.
+        await dataSourceItemProvider(userContext, dataSourceItem.resourceItem);
+    }
     return dataSourceItem;
 };
 

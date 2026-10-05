@@ -1,5 +1,7 @@
 using Reveal.Sdk;
 using Reveal.Sdk.Data;
+using Reveal.Sdk.Data.OData;
+using Reveal.Sdk.Data.Rest;
 
 /// <summary>
 /// Fills in connection details on the server so the browser only ever sees data source
@@ -7,6 +9,13 @@ using Reveal.Sdk.Data;
 /// </summary>
 public class DataSourceProvider : IRVDataSourceProvider
 {
+    // The core connectors (REST, web resource, OData, local files) need no registration,
+    // so a crafted request can point them at any URL or file path. Returning the item
+    // unchanged, returning null and throwing all run it as sent, so until a location is
+    // mapped to a server-controlled value it is overwritten with one that cannot resolve.
+    private const string BlockedUrl = "https://blocked.invalid/"; // .invalid never resolves (RFC 2606)
+    private const string BlockedFile = "local:/blocked-by-server";
+
     private readonly IConfiguration _configuration;
 
     public DataSourceProvider(IConfiguration configuration) => _configuration = configuration;
@@ -21,6 +30,14 @@ public class DataSourceProvider : IRVDataSourceProvider
         //     sql.Host = _configuration["Reveal:Sql:Host"];
         //     sql.Database = _configuration["Reveal:Sql:Database"];
         // }
+
+        // Replace with URLs from configuration for the endpoints the app uses.
+        switch (dataSource)
+        {
+            case RVRESTDataSource rest: rest.Url = BlockedUrl; break;
+            case RVWebResourceDataSource web: web.Url = BlockedUrl; break;
+            case RVODataDataSource odata: odata.Url = BlockedUrl; break;
+        }
         return Task.FromResult(dataSource);
     }
 
@@ -41,6 +58,19 @@ public class DataSourceProvider : IRVDataSourceProvider
         //         ["@tenantId"] = userContext.Properties["TenantId"]
         //     };
         // }
+
+        // Locations the request chose. Replace with server-side allow-lists, e.g. a local
+        // file Uri built only from known ids (see references/data-sources.md, "Files").
+        switch (dataSourceItem)
+        {
+            case RVWebResourceDataSourceItem web: web.Url = BlockedUrl; break;
+            case RVODataDataSourceItem odata: odata.Url = BlockedUrl; break;
+            case RVLocalFileDataSourceItem local: local.Uri = BlockedFile; break;
+            // Excel, CSV and JSON items wrap the REST, web or local file item that holds the location.
+            case RVResourceBasedDataSourceItem { ResourceItem: RVDataSourceItem resource }:
+                await ChangeDataSourceItemAsync(userContext, dashboardId, resource);
+                break;
+        }
         return dataSourceItem;
     }
 }

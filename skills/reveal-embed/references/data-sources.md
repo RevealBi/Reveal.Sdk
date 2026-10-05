@@ -129,7 +129,7 @@ Open the `.rdash` (a zip with `Dashboard.json`) to see which tables and data sou
 
 Returning `null` from the item provider, or throwing, does **not** block the request (verified on Node 2.2.1). Reveal then runs the item exactly as the client sent it, with the client-supplied host, port and database, discards your changes to `item.dataSource`, and asks the authentication provider for credentials for that host. A request can name any host. So:
 
-- **Credentials only for your own database.** In the authentication provider, return a credential only when the data source's host, port and database equal your configured values; otherwise return `null`. This is the control that keeps the password from going to a host named in a request.
+- **Credentials only for your own database or API.** In the authentication provider, return a credential only when the data source's host, port and database (or, for REST, the URL's scheme, host and port) equal your configured values; otherwise return `null`. This is the control that keeps a password or bearer token from going to a host named in a request.
 - **Do not reject database items with `null`.** Redirect them to your database and give unknown ones a query that returns no rows, as above.
 - Always overwrite host, port and database in the data source provider for your connector type, never only for known ids.
 - **Handle every connector type you enable.** A fallthrough `null` is not a fail-closed default: a REST or local-file item that reaches it keeps the URL or path the client chose. Give each enabled type its own branch that overwrites the location with a server-controlled value, and do not register connectors the app does not use.
@@ -151,7 +151,8 @@ public class AuthenticationProvider : IRVAuthenticationProvider
         {
             // Only for our own server: a request can name any host (see "Rejecting an item" above).
             RVSqlServerDataSource sql when IsOurDatabase(sql) => new RVUsernamePasswordDataSourceCredential(user, password), // optional third arg: domain
-            RVRESTDataSource      => new RVBearerTokenDataSourceCredential(token, userId),
+            // Same for tokens: the URL is the client's unless the data source provider overwrote it.
+            RVRESTDataSource rest when IsOurApi(rest)         => new RVBearerTokenDataSourceCredential(token, userId),
             _ => null
         };
         return Task.FromResult(credential);
