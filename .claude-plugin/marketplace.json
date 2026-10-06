@@ -1,0 +1,18 @@
+{
+  "name": "reveal-sdk",
+  "owner": {
+    "name": "Reveal BI"
+  },
+  "metadata": {
+    "description": "Claude Code skills for the Reveal SDK",
+    "version": "0.1.0"
+  },
+  "plugins": [
+    {
+      "name": "reveal-sdk",
+      "source": "./",
+      "description": "reveal-embed: embed Reveal dashboards in your app (ASP.NET, Node.js, Java servers; HTML, Angular, React clients), data sources, user context and row-level security, dashboards, theming, export, production.",
+      "version": "0.1.0"
+    }
+  ]
+}

@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reveal dashboard</title>
+    <style>
+        /* RevealView fills its container, so the container needs a real height. */
+        html, body, #revealView { width: 100%; height: 100%; margin: 0; }
+    </style>
+</head>
+<body>
+    <div id="revealView"></div>
+
+    <script type="module">
+        // Pin the version, and keep it in step with the server package.
+        import { RevealView, RVDashboard } from "https://cdn.jsdelivr.net/npm/reveal-sdk@2.2.1/dist/reveal-sdk.esm.js";
+
+        // Same origin as the server, so no RevealSdkSettings.setBaseUrl is needed.
+        // Pass ?dashboard=<name> to load Dashboards/<name>.rdash; with none, an empty
+        // dashboard opens in the editor.
+        const name = new URLSearchParams(location.search).get("dashboard");
+        const revealView = new RevealView("#revealView");
+
+        if (name) {
+            try {
+                revealView.dashboard = await RVDashboard.loadDashboard(name);
+            } catch (err) {
+                // Typical first-run causes: 401 (no authentication wired up yet, or start with
+                // --anonymous-demo) or a missing .rdash. See the server console and network tab.
+                const msg = document.createElement("p");
+                msg.textContent = `Could not load dashboard "${name}": ${err?.message ?? err}`;
+                document.body.prepend(msg);
+            }
+        } else {
+            revealView.startInEditMode = true;
+            revealView.dashboard = new RVDashboard();
+        }
+    </script>
+</body>
+</html>

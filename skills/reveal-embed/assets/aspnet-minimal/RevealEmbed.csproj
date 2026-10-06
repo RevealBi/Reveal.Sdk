@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Keep in step with the client reveal-sdk version in wwwroot/index.html. -->
+    <PackageReference Include="Reveal.Sdk.AspNetCore" Version="2.2.1" />
+    <!-- Add the connector for your database, then register it in Program.cs:
+    <PackageReference Include="Reveal.Sdk.Data.Microsoft.SqlServer" Version="2.2.1" /> -->
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="Dashboards\**" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>

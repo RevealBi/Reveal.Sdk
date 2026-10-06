@@ -1,0 +1,14 @@
+{
+  "name": "reveal-embed-node",
+  "private": true,
+  "main": "main.js",
+  "scripts": {
+    "start": "node main.js",
+    "demo": "node main.js --anonymous-demo"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.21.0",
+    "reveal-sdk-node": "2.2.1"
+  }
+}
