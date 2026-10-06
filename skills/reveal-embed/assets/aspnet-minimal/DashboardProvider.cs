@@ -36,6 +36,18 @@ public partial class DashboardProvider : IRVDashboardProvider
         if (!ValidId().IsMatch(dashboardId)) throw new ArgumentException("Invalid dashboard id.");
         var dir = UserDir(userContext);
         Directory.CreateDirectory(dir);
-        await dashboard.SaveToFileAsync(Path.Combine(dir, dashboardId + ".rdash"));
+        // Write to a temp file and swap it in only once complete, so a failed or interrupted
+        // save never truncates the previous version.
+        var tmp = Path.Combine(dir, $"{dashboardId}.{Guid.NewGuid():N}.tmp");
+        try
+        {
+            await dashboard.SaveToFileAsync(tmp);
+            File.Move(tmp, Path.Combine(dir, dashboardId + ".rdash"), overwrite: true);
+        }
+        catch
+        {
+            File.Delete(tmp);
+            throw;
+        }
     }
 }

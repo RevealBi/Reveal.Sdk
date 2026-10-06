@@ -144,7 +144,15 @@ const dashboardStorageProvider = async (userContext, dashboardId, stream) => {
     if (!VALID_ID.test(dashboardId)) throw new Error("Invalid dashboard id");
     const dir = userFolder(userContext);
     fs.mkdirSync(dir, { recursive: true });
-    await pipeline(stream, fs.createWriteStream(path.join(dir, `${dashboardId}.rdash`)));
+    // Temp file, then swap: a failed or interrupted save never truncates the previous version.
+    const tmp = path.join(dir, `${dashboardId}.${crypto.randomUUID()}.tmp`);
+    try {
+        await pipeline(stream, fs.createWriteStream(tmp));
+        await fs.promises.rename(tmp, path.join(dir, `${dashboardId}.rdash`));
+    } catch (err) {
+        await fs.promises.rm(tmp, { force: true });
+        throw err;
+    }
 };
 ```
 

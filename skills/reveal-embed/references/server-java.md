@@ -134,7 +134,16 @@ public class DashboardProvider implements IRVDashboardProvider {
         if (!VALID_ID.matcher(dashboardId).matches()) throw new IllegalArgumentException("Invalid dashboard id");
         Path dir = userDir(userContext);
         Files.createDirectories(dir);
-        Files.copy(dashboard, dir.resolve(dashboardId + ".rdash"), StandardCopyOption.REPLACE_EXISTING);
+        // Temp file, then swap: a failed or interrupted save never truncates the previous version.
+        Path tmp = Files.createTempFile(dir, dashboardId + ".", ".tmp");
+        try {
+            Files.copy(dashboard, tmp, StandardCopyOption.REPLACE_EXISTING);
+            Files.move(tmp, dir.resolve(dashboardId + ".rdash"),
+                StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+        } catch (IOException | RuntimeException e) {
+            Files.deleteIfExists(tmp);
+            throw e;
+        }
     }
 }
 ```
