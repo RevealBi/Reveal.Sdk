@@ -10,7 +10,7 @@ A dashboard is an `.rdash` file: a zip of JSON describing the visualizations, fi
 | --- | --- |
 | ASP.NET | `Dashboards/` under the working directory. Load and save both work, but the default provider lets **any authenticated user read and overwrite every dashboard**. Fine for a single-user app; otherwise supply a provider that authorizes per user or tenant (assets/aspnet-minimal has one), or set `canEdit = false`. |
 | Node.js | `dashboards/` under the working directory. The built-in loader/saver does not validate the id (path traversal on 2.2.1); always supply validating `dashboardProvider` and `dashboardStorageProvider` that also authorize per user or tenant. |
-| Java | None. Always configure `new RVDashboardProvider(path)` or a custom provider. |
+| Java | None. Always configure a provider. The built-in `RVDashboardProvider(path)` has the same overwrite-anything behavior; use the per-user provider in server-java.md, or a custom one. |
 
 The client loads by id, which is the file name without `.rdash`:
 

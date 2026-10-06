@@ -40,7 +40,7 @@ const userContextProvider = (request) => {
         // Fail closed: never fold a principal without a stable id into a shared context.
         // Change `id` to the property your auth middleware sets (sub, userId, ...).
         const id = request.user.id;
-        if (typeof id !== "string" && typeof id !== "number") {
+        if ((typeof id !== "string" && typeof id !== "number") || String(id).trim() === "") {
             throw new Error("Authenticated user has no stable id");
         }
         return new reveal.RVUserContext(String(id), props);

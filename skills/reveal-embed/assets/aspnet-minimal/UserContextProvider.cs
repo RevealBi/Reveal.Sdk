@@ -14,12 +14,14 @@ public class UserContextProvider : IRVUserContextProvider
     {
         var user = httpContext.User;
         // Use a stable identifier claim, not Identity.Name (which can be null), and fail
-        // closed if an authenticated principal has none.
-        var userId = user.Identity?.IsAuthenticated == true
-            ? user.FindFirst(ClaimTypes.NameIdentifier)?.Value
-                ?? user.FindFirst("sub")?.Value
-                ?? throw new InvalidOperationException("Authenticated user has no stable identifier.")
-            : "anonymous";
+        // closed if an authenticated principal has none (missing or blank).
+        string? userId = "anonymous";
+        if (user.Identity?.IsAuthenticated == true)
+        {
+            userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? user.FindFirst("sub")?.Value;
+            if (string.IsNullOrWhiteSpace(userId))
+                throw new InvalidOperationException("Authenticated user has no stable identifier.");
+        }
 
         var properties = new Dictionary<string, object>();
         // Example: carry a tenant claim through to the data source provider.

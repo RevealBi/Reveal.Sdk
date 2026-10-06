@@ -47,7 +47,7 @@ app.use("/", requireAuth, reveal(revealOptions));
 app.listen(5111);
 ```
 
-`userContextProvider` only derives the context. Make it throw when `request.user` has no stable id rather than mapping to a shared "anonymous" user (see [assets/node-minimal](../assets/node-minimal)).
+`userContextProvider` only derives the context. Make it throw when `request.user` has no stable id (missing or blank) rather than mapping to a shared "anonymous" user (see [assets/node-minimal](../assets/node-minimal)).
 
 **License on Node:** with `license` omitted, the engine reads `~/.revealbi-sdk/license.key` of the account running the process, or runs as a trial. A `license` option that is present but empty makes 2.2.1 log `The license key is missing or has expired. Engine failed to start` and throw `Engine exited abnormally`, which can take down the whole Node process. Do not add an empty `REVEAL_LICENSE=` to a real `.env`; a commented line in `.env.example` is fine (verified on 2.2.1).
 
@@ -118,19 +118,37 @@ app.use(express.json());
 By default dashboards load from a `dashboards` folder (lower case) in the **working directory** of the process, so start the server from the project root. **Do not rely on the built-in loader and saver in a real app:** on 2.2.1 they join the client's dashboard id into the path unchecked (`GET /DashboardFile/..%5c..%5cname` read `name.rdash` from outside the folder). Supply a `dashboardProvider` and a `dashboardStorageProvider` that validate the id **and decide who may read or write which dashboard** ([assets/node-minimal](../assets/node-minimal) does both: shared dashboards are read-only, each user saves into their own folder):
 
 ```js
+const crypto = require("crypto");
 const fs = require("fs");
 const path = require("path");
+const { pipeline } = require("stream/promises");
+
+// dashboards/ holds shared, read-only dashboards; each user saves into a private folder keyed
+// by a hash of their id, so nobody can read or overwrite another user's dashboards.
+const DASHBOARDS_DIR = path.join(process.cwd(), "dashboards");
+const VALID_ID = /^[A-Za-z0-9_-]{1,100}$/;   // dashboardId comes from the client
+
+const userFolder = (userContext) =>
+    path.join(DASHBOARDS_DIR, "users", crypto.createHash("sha256").update(String(userContext.userId)).digest("hex"));
 
 const dashboardProvider = async (userContext, dashboardId) => {
-    // dashboardId comes from the client: reject anything that could escape the folder.
-    if (!/^[A-Za-z0-9_-]+$/.test(dashboardId)) return null;
-    // Also check that userContext may read this dashboard (tenant or owner), then pair this with a
-    // dashboardStorageProvider that checks write access. The default saver lets any caller overwrite any dashboard.
-    return fs.createReadStream(path.join(__dirname, "dashboards", `${dashboardId}.rdash`));
+    if (!VALID_ID.test(dashboardId)) return null;
+    for (const dir of [userFolder(userContext), DASHBOARDS_DIR]) {
+        const file = path.join(dir, `${dashboardId}.rdash`);
+        if (fs.existsSync(file)) return fs.createReadStream(file);
+    }
+    return null;
+};
+
+const dashboardStorageProvider = async (userContext, dashboardId, stream) => {
+    if (!VALID_ID.test(dashboardId)) throw new Error("Invalid dashboard id");
+    const dir = userFolder(userContext);
+    fs.mkdirSync(dir, { recursive: true });
+    await pipeline(stream, fs.createWriteStream(path.join(dir, `${dashboardId}.rdash`)));
 };
 ```
 
-Always validate `dashboardId` before building a path from it (see dashboards.md).
+This relies on `userContextProvider` rejecting a missing or blank user id, so no two users share a folder. Replace it with the app's own storage and rules (tenants, sharing) when it needs them; see dashboards.md.
 
 ## Node-specific limits
 

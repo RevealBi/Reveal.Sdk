@@ -28,12 +28,14 @@ System requirements: ASP.NET 8.0+; Java 17+ with a Jakarta EE 9 server and Maven
 Always start here, even when the request is about something later in the list. A rendering `RevealView` proves the package, license, routing, CORS and base URL all work, so every later problem is narrowed to the feature being added.
 
 1. Install the server package and register Reveal (see the `server-*` reference). In an existing Express app, mount Reveal **before** any body parser (`express.json()` and friends), behind the app's auth middleware, configured to reject unauthenticated requests (authentication alone does not; see user-context-security.md).
-2. Put one `.rdash` in the dashboards folder: `Dashboards/` for ASP.NET, `dashboards/` for Node, an explicit path given to `RVDashboardProvider` for Java. The dashboard id the client asks for is the file name without `.rdash`.
+2. Put one `.rdash` in the dashboards folder: `Dashboards/` for ASP.NET, `dashboards/` for Node, the path given to the per-user `DashboardProvider` in server-java.md for Java. The dashboard id the client asks for is the file name without `.rdash`.
 3. Add the client: install `reveal-sdk` (or load it from a CDN), give the host element a real height, call `setBaseUrl` if the origins differ, then `RVDashboard.loadDashboard("Name")` and assign it to `new RevealView(element).dashboard`.
 4. Allow the client origin in CORS for development.
 5. Run both and open the page from `http(s)://`, not `file://`.
 
 [assets/aspnet-minimal](assets/aspnet-minimal) and [assets/node-minimal](assets/node-minimal) are working starting points with a same-origin page. Both reject unauthenticated Reveal requests by default; run them with `--anonymous-demo` (`dotnet run -- --anonymous-demo`, `npm run demo`) for a local, localhost-only first run, and wire in the app's real authentication before anything else. Adapt them into the customer's project rather than handing over a separate app, unless they asked for a standalone sample.
+
+What the starters cover, and what they deliberately leave to the app: dashboards can be viewed, created and saved in the editor; saves are scoped to the signed-in user (shared dashboards are read-only, each user gets a private folder); identity comes from server-side authentication and fails closed; data source locations the client sends are overwritten on the server. Roles, tenants, sharing dashboards between users, rate limiting and the app's real authentication scheme are out of scope. Add them from the references when the customer needs them.
 
 If there is no `.rdash` yet, set `revealView.dashboard = new RVDashboard()` to open an empty dashboard, and give the view at least one data source (step 3) so the user can build visualizations.
 

@@ -27,14 +27,14 @@ Register `RevealEngineServlet` as a servlet bean. Packages are `io.revealbi.core
 
 ```java
 import io.revealbi.core.RevealServerBuilder;
-import io.revealbi.core.RVDashboardProvider;
 import io.revealbi.servlet.RevealEngineServlet;
 
 @Bean
 ServletRegistrationBean<RevealEngineServlet> revealServlet() {
+    // The constructor takes a Supplier<IRevealServer> (or a built IRevealServer) plus the user context provider.
     RevealEngineServlet servlet = new RevealEngineServlet(
         () -> new RevealServerBuilder()
-            .setDashboardProvider(new RVDashboardProvider(Paths.get("Dashboards").toAbsolutePath().toString()))
+            .setDashboardProvider(new DashboardProvider(Paths.get("Dashboards")))   // per-user, see Dashboards below
             .setDataSourceProvider(new DataSourceProvider())
             .setAuthenticationProvider(new AuthenticationProvider())
             .addSettings(settings -> {
@@ -58,7 +58,7 @@ ServletRegistrationBean<RevealEngineServlet> revealServlet() {
 - **Protect the endpoint; reading the principal does not reject anonymous callers.** Add an explicit rule, for example in Spring Security: `http.authorizeHttpRequests(a -> a.requestMatchers("/reveal-api/**").authenticated())` (or `.anyRequest().authenticated()`), and have `userIdFrom(request)` throw when `request.getUserPrincipal()` is null instead of falling back to a default id. Without Spring Security, add a `<security-constraint>` for `/reveal-api/*` in `web.xml` (or `@ServletSecurity` on a servlet subclass). Verify an unauthenticated request to `/reveal-api/` gets 401/403.
 - The mapping (`/reveal-api/*` here) must match the client's base URL: `RevealSdkSettings.setBaseUrl("https://host/reveal-api/")`. The getting-started sample maps `/*` so no base URL path is needed.
 - `setAsyncSupported(true)` is required.
-- **There is no default dashboards folder on Java.** Always set a dashboard provider; the built-in `RVDashboardProvider(path)` loads and saves `.rdash` files from that path.
+- **There is no default dashboards folder on Java.** Always set a dashboard provider (see [Dashboards](#dashboards)).
 
 ## Tomcat (no Spring)
 
@@ -70,7 +70,7 @@ public class AppInitializer implements ServletContextListener {
     @Override
     public void contextInitialized(ServletContextEvent sce) {
         RevealEngineServlet servlet = new RevealEngineServlet(() -> new RevealServerBuilder()
-                .setDashboardProvider(new RVDashboardProvider("/srv/app/dashboards"))
+                .setDashboardProvider(new DashboardProvider(Paths.get("/srv/app/dashboards")))
                 .build(),
             request -> new RVUserContext(userIdFrom(request), null));
 
@@ -80,6 +80,66 @@ public class AppInitializer implements ServletContextListener {
     }
 }
 ```
+
+## Dashboards
+
+The built-in `RVDashboardProvider(path)` loads and saves `.rdash` files from one shared folder and lets any caller overwrite any dashboard. Use a provider that validates the client's dashboard id and scopes saves to the caller, the same pattern as the ASP.NET and Node starters: shared dashboards are read-only, and each user saves into a private folder keyed by a hash of their id (compiled against `reveal-sdk-core` 2.2.0):
+
+```java
+import io.revealbi.core.IRVDashboardProvider;
+import io.revealbi.core.IRVUserContext;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.HexFormat;
+import java.util.List;
+import java.util.regex.Pattern;
+
+public class DashboardProvider implements IRVDashboardProvider {
+    private static final Pattern VALID_ID = Pattern.compile("^[A-Za-z0-9_-]{1,100}$");
+    private final Path sharedDir;
+
+    public DashboardProvider(Path sharedDir) {
+        this.sharedDir = sharedDir.toAbsolutePath();
+    }
+
+    private Path userDir(IRVUserContext userContext) {
+        try {
+            byte[] hash = MessageDigest.getInstance("SHA-256")
+                .digest(String.valueOf(userContext.getUserId()).getBytes(StandardCharsets.UTF_8));
+            return sharedDir.resolve("users").resolve(HexFormat.of().formatHex(hash));
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException(e);
+        }
+    }
+
+    @Override
+    public InputStream getDashboard(IRVUserContext userContext, String dashboardId) throws IOException {
+        if (!VALID_ID.matcher(dashboardId).matches()) throw new IllegalArgumentException("Invalid dashboard id");
+        for (Path dir : List.of(userDir(userContext), sharedDir)) {
+            Path file = dir.resolve(dashboardId + ".rdash");
+            if (Files.exists(file)) return Files.newInputStream(file);
+        }
+        throw new FileNotFoundException(dashboardId);
+    }
+
+    @Override
+    public void saveDashboard(IRVUserContext userContext, String dashboardId, InputStream dashboard) throws IOException {
+        if (!VALID_ID.matcher(dashboardId).matches()) throw new IllegalArgumentException("Invalid dashboard id");
+        Path dir = userDir(userContext);
+        Files.createDirectories(dir);
+        Files.copy(dashboard, dir.resolve(dashboardId + ".rdash"), StandardCopyOption.REPLACE_EXISTING);
+    }
+}
+```
+
+`userIdFrom(request)` must reject a missing or blank principal name (throw), so no two users share a folder. Replace with the app's own storage and rules (tenants, sharing) when it needs them; see dashboards.md.
 
 ## Providers
 

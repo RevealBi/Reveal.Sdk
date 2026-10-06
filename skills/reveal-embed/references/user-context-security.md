@@ -33,10 +33,11 @@ public class UserContextProvider : IRVUserContextProvider
                 ?? throw new InvalidOperationException("Authenticated user has no tenant."),
             ["Role"]     = user.IsInRole("Admin") ? "Admin" : "User",
         };
-        // Identity.Name can be null for an authenticated user; require a stable id claim.
+        // Identity.Name can be null for an authenticated user; require a stable, non-blank id claim.
         var userId = user.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
-            ?? user.FindFirst("sub")?.Value
-            ?? throw new InvalidOperationException("Authenticated user has no stable identifier.");
+            ?? user.FindFirst("sub")?.Value;
+        if (string.IsNullOrWhiteSpace(userId))
+            throw new InvalidOperationException("Authenticated user has no stable identifier.");
         return new RVUserContext(userId, props);
     }
 }
