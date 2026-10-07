@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>DomSamples</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Floating: always the newest Reveal.Sdk.Dom prerelease (the package ships only prereleases). -->
+    <PackageReference Include="Reveal.Sdk.Dom" Version="*-*" />
+  </ItemGroup>
+
+</Project>

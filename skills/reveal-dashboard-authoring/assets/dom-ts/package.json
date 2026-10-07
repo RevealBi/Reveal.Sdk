@@ -1,0 +1,27 @@
+{
+  "name": "reveal-dom-workspace",
+  "private": true,
+  "type": "module",
+  "description": "Write, type-check and run @revealbi/dom code that creates, edits and inspects Reveal .rdash dashboards.",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "create": "tsx src/examples/create-sales-dashboard.ts",
+    "edit": "tsx src/examples/edit-dashboard.ts",
+    "sql": "tsx src/examples/sql-server-dashboard.ts",
+    "inspect": "tsx src/tools/inspect.ts",
+    "api": "tsx src/tools/api.ts",
+    "test": "tsc --noEmit && tsx test/run-all.ts"
+  },
+  "dependencies": {
+    "@revealbi/dom": "latest",
+    "fflate": "^0.8.2"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

@@ -11,7 +11,7 @@
     {
       "name": "reveal-sdk",
       "source": "./",
-      "description": "reveal-embed: embed Reveal dashboards in your app (ASP.NET, Node.js, Java servers; HTML, Angular, React clients), data sources, user context and row-level security, dashboards, theming, export, production.",
+      "description": "reveal-embed: embed Reveal dashboards in your app (ASP.NET, Node.js, Java servers; HTML, Angular, React clients), data sources, user context and row-level security, dashboards, theming, export, production. reveal-dashboard-authoring: create, edit and delete .rdash dashboards in code with the Reveal DOM (@revealbi/dom, Reveal.Sdk.Dom).",
       "version": "0.1.0"
     }
   ]

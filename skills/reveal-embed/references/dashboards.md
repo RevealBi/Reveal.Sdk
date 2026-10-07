@@ -2,7 +2,7 @@
 
 Sources: https://help.revealbi.io/web/loading-dashboards, `saving-dashboards`, `creating-dashboards`, `editing-dashboards`.
 
-A dashboard is an `.rdash` file: a zip of JSON describing the visualizations, filters and data sources. Customers create them in the `RevealView` editor (in their own app or a dev build of it) or in the Reveal app, then ship or store them. Do not hand-write `.rdash` JSON for them.
+A dashboard is an `.rdash` file: a zip of JSON describing the visualizations, filters and data sources. Customers create them in the `RevealView` editor (in their own app or a dev build of it) or in the Reveal app, then ship or store them. When dashboards must be created or changed in code, use the Reveal DOM (see [below](#creating-and-changing-dashboards-in-code)). Never hand-write or string-edit `.rdash` JSON.
 
 ## Default convention
 
@@ -129,4 +129,25 @@ Dashboards can also be loaded from an embedded resource or from JSON (docs: `loa
 
 ## Replacing data sources in a shipped dashboard
 
-A dashboard built against a dev database keeps that connection inside the `.rdash`. Do not edit the file. Redirect it at runtime in the data source provider (data-sources.md), or use the techniques in the docs topic `replacing-datasources`.
+A dashboard built against a dev database keeps that connection inside the `.rdash`. Redirect it at runtime in the data source provider (data-sources.md), or use the techniques in the docs topic `replacing-datasources`. The provider stays correct for dashboards users save later, and it keeps connection details out of the files. Rewrite the file itself (with the DOM, below) only for a one-off migration, such as moving shipped dashboards off a retired database.
+
+## Creating and changing dashboards in code
+
+The Reveal DOM is an object model for `.rdash` files: `@revealbi/dom` for TypeScript/JavaScript (browser or Node, no Reveal SDK needed) and `Reveal.Sdk.Dom` for .NET. Use it when dashboards come from code rather than the editor:
+
+- A template filled in per tenant or per user. Build it inside the dashboard provider and return it, after the usual id validation and authorization.
+- Dashboards generated from a spec, a wizard or AI output, which then open in the editor for the user to refine.
+- Bulk changes to stored dashboards: retitle, remove a visualization, copy visualizations between dashboards, or a one-off data source migration.
+
+```js
+// Node dashboard provider returning a generated dashboard
+const doc = buildTenantOverview(tenantOf(userContext));          // an RdashDocument from @revealbi/dom
+return Readable.from(Buffer.from(await doc.toBlob().arrayBuffer()));
+```
+
+```cs
+// ASP.NET IRVDashboardProvider returning a generated dashboard (Reveal.Sdk.Dom)
+return Dashboard.FromJsonString(TenantOverview.Build(TenantOf(userContext)).ToJsonString());
+```
+
+For the API, the traps (field names aren't validated, date filters connect to a field literally called `"Date"` unless you name one, and round-tripping editor-made dashboards drops a few settings), and complete tested examples, use the `reveal-dashboard-authoring` skill.

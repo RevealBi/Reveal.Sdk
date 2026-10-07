@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reveal DOM in the browser</title>
+    <style>
+        html, body, #revealView { width: 100%; height: 100%; margin: 0; font-family: system-ui, sans-serif; }
+    </style>
+</head>
+<body>
+    <div id="revealView"></div>
+
+    <!--
+      @revealbi/dom in the browser with the script-tag builds: the SDK sets the `Reveal` global,
+      the DOM sets `RevealDom` and finds `Reveal` by itself (no registerRevealSdk needed).
+        client-side.html                     builds a dashboard in the browser
+        client-side.html?dashboard=Sales     loads Sales through the DOM, edits it, renders it
+    -->
+    <script>
+        const load = src => new Promise((resolve, reject) =>
+            document.head.appendChild(Object.assign(document.createElement("script"), { src, onload: resolve, onerror: reject })));
+
+        (async () => {
+            const info = await (await fetch("/api/info")).json();
+            await load(`https://cdn.jsdelivr.net/npm/reveal-sdk@${info.sdkVersion}/dist/reveal-sdk.js`);   // same version as the server
+            await load("https://cdn.jsdelivr.net/npm/@revealbi/dom@latest/index.iife.js");
+            const { RdashDocument, DataSource, RestDataSourceItem, TextField, NumberField, DateField,
+                    ColumnChartVisualization, PieChartVisualization, DashboardDataFilter } = RevealDom;
+
+            const id = new URLSearchParams(location.search).get("dashboard");
+            let doc;
+            if (id) {
+                doc = await RdashDocument.load(id);                    // asks the Reveal server, like RVDashboard.loadDashboard
+                doc.title = `${doc.title} (edited in the browser)`;
+                doc.visualizations = doc.visualizations.filter(v => v.title !== "Orders");
+            } else {
+                const ds = new DataSource("Sample data");
+                ds.id = "SampleData";
+                const sales = new RestDataSourceItem("Sales", "https://sample-data.invalid/sales.json", ds);
+                sales.id = "sales";                                    // the preview server maps this id to its sample data
+                sales.isAnonymous = true;
+                sales.fields = [new DateField("OrderDate"), new TextField("Region"), new TextField("Category"), new NumberField("Revenue")];
+
+                doc = new RdashDocument("Built in the browser");
+                const region = new DashboardDataFilter("Region", "Region", sales);
+                doc.filters = [region];
+                doc.visualizations = [
+                    new ColumnChartVisualization("Revenue by region", sales).setLabel("Region").setValues("Revenue").connectDashboardFilter(region),
+                    new PieChartVisualization("Revenue by category", sales).setLabel("Category").setValue("Revenue").connectDashboardFilter(region),
+                ];
+            }
+
+            const view = new Reveal.RevealView("#revealView");
+            view.dashboard = await doc.toRVDashboard();               // RdashDocument -> RVDashboard
+            document.body.dataset.loaded = "true";
+        })().catch(err => {
+            document.body.prepend(Object.assign(document.createElement("p"), { textContent: `Failed: ${err?.message ?? err}` }));
+            document.body.dataset.loaded = "error";
+        });
+    </script>
+</body>
+</html>

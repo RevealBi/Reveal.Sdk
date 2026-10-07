@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reveal dashboard preview</title>
+    <style>
+        html, body { width: 100%; height: 100%; margin: 0; font-family: system-ui, sans-serif; }
+        #revealView { width: 100%; height: 100%; }
+        #list { padding: 16px; }
+    </style>
+</head>
+<body>
+    <div id="list" hidden></div>
+    <div id="revealView"></div>
+
+    <script type="module">
+        const info = await (await fetch("/api/info")).json();
+        const id = new URLSearchParams(location.search).get("dashboard");
+
+        if (!id) {
+            const list = document.getElementById("list");
+            list.hidden = false;
+            list.innerHTML = `<h1>Dashboards in ${info.dashboardsDir}</h1>` + (info.dashboards.length
+                ? `<ul>${info.dashboards.map(d => `<li><a href="?dashboard=${encodeURIComponent(d)}">${d}</a></li>`).join("")}</ul>`
+                : "<p>No .rdash files yet.</p>");
+        } else {
+            // Client and server versions must match.
+            const { RevealView, RVDashboard } = await import(`https://cdn.jsdelivr.net/npm/reveal-sdk@${info.sdkVersion}/dist/reveal-sdk.esm.js`);
+            const view = new RevealView("#revealView");
+            try {
+                view.dashboard = await RVDashboard.loadDashboard(id);
+                document.body.dataset.loaded = "true";
+            } catch (err) {
+                document.body.prepend(Object.assign(document.createElement("p"), { textContent: `Could not load "${id}": ${err?.message ?? err}` }));
+                document.body.dataset.loaded = "error";
+            }
+        }
+    </script>
+</body>
+</html>

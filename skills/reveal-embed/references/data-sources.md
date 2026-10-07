@@ -109,7 +109,7 @@ Providers registered with `AddDataSourceProvider<T>()` are created by DI, so con
 
 ### Matching items: ids vs tables
 
-Match on `item.Id` only for items your own app defines in `onDataSourcesRequested`, where you chose the ids. A dashboard built in Reveal BI, by an analyst, or generated with the DOM stores **generated GUIDs** as item ids, and the same table can appear under several ids. For those, key on what the item points at (`Table`, plus `Schema` or `Database` if relevant) through an allow-list, and replace it with the server's own query:
+Match on `item.Id` only for items whose ids your app chose: those defined in `onDataSourcesRequested`, or set explicitly (`item.id = "Orders"`) when generating a dashboard with the Reveal DOM. A dashboard built in Reveal BI, by an analyst, or generated with the DOM without explicit ids stores **generated GUIDs** as item ids, and the same table can appear under several ids. For those, key on what the item points at (`Table`, plus `Schema` or `Database` if relevant) through an allow-list, and replace it with the server's own query:
 
 ```js
 // Node

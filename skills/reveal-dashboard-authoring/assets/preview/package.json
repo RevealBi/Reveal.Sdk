@@ -1,0 +1,16 @@
+{
+  "name": "reveal-dashboard-preview",
+  "private": true,
+  "description": "Local, read-only Reveal server and headless check for generated .rdash files.",
+  "scripts": {
+    "start": "node server.js",
+    "check": "node check.mjs"
+  },
+  "dependencies": {
+    "express": "^4.21.0",
+    "reveal-sdk-node": "latest"
+  },
+  "devDependencies": {
+    "playwright-core": "^1.48.0"
+  }
+}
