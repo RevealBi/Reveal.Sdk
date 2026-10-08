@@ -31,7 +31,7 @@ jobs:
           url=$(gh issue list --state all --search "\"$SOURCE_ID\" in:body" --json url --jq '.[0].url // empty')
           if [ -z "$url" ]; then
             body=$(printf '%s\n\n---\nReported on Discord: %s\nLogged by: %s\n%s' "$SUMMARY" "$SOURCE_URL" "$LOGGED_BY" "$marker")
-            url=$(gh issue create --title "$TITLE" --body "$body" --label source:discord)
+            url=$(gh issue create --title "$TITLE" --body "$body" --label source: discord)
           fi
           echo "url=$url" >> "$GITHUB_OUTPUT"
 
