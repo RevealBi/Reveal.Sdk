@@ -1,21 +1,38 @@
 # Editing, deleting and copying in existing dashboards
 
-Load, change the objects, then serialize. Never patch `Dashboard.json` text.
+Load, change the objects, then serialize. Never patch `Dashboard.json` text (SKILL.md, "Use only the DOM").
 
 ## Know what a round trip changes first
 
-Loading a dashboard into the DOM and saving it again **rewrites** the JSON, and the result is not byte-identical. These results come from round-tripping 55 dashboards authored in the Reveal editor through both libraries:
+Loading a dashboard into the DOM and saving it again **rewrites** the JSON. Settings equal to their default are omitted, which is harmless: Reveal applies the same default. But some settings the editor writes aren't modeled by the DOM, so they're dropped. Found by round-tripping 85 dashboards (editor-made and generated) through `@revealbi/dom` 0.3.0 and `Reveal.Sdk.Dom` 0.1.688:
 
-| Effect | Harmless? |
-| --- | --- |
-| Settings equal to their default are omitted (for example pie `LabelDisplayMode: "Percentage"`) | Yes. Reveal applies the same default. |
-| Two properties of the data source item's field list are not modeled, so they're dropped: `IsHidden` (fields the author hid from the editor's field list reappear) and per-field date `Formatting` such as `"dd-MMM-yyyy"` (a custom date format reverts) | **No.** Visible to users. |
-| TypeScript 0.3.0 can't load some editor-made visualizations (`SettingsConverter: Chart type not supported: Candlestick`). The .NET library loaded all of them. | Load throws, so nothing is written. |
+| Dropped on load → save (visible to users) | TypeScript | .NET |
+| --- | --- | --- |
+| Hidden fields (`IsHidden` on the item's fields): fields the author hid reappear | dropped | dropped |
+| Custom date format on a field (`"dd-MMM-yyyy"`): reverts to the default | dropped | dropped |
+| Sort order of a field (`DataSpec.Fields[].Sorting`: how a grid or chart is sorted) | dropped | kept |
+| Grid grouping, grid column hyperlinks and pinning | dropped | kept |
+| Data source refresh rate | dropped | kept |
+
+| Can't load | TypeScript | .NET |
+| --- | --- | --- |
+| A Candlestick chart (`SettingsConverter: Chart type not supported: Candlestick`) | fails | loads |
+| A Top N rule on a text field (`Error setting value to 'DataFilter' on 'TextField'`) | loads | fails |
+
+The tables are a summary; the dashboard in front of you decides. **Before changing a dashboard a person authored, run the loss check** from the TypeScript workspace:
+
+```bash
+npm run losscheck -- dashboards/Sales.rdash                       # what a TypeScript round trip drops
+npm run losscheck -- dashboards/Sales.rdash out/Sales-edited.rdash # after an edit (any library): what got dropped, what changed
+```
+
+Exit code 0 means nothing user-visible is lost (it still lists changed values, so you can confirm they're your edits). Exit code 1 lists what would be lost. Exit code 2 means the TypeScript DOM can't load the file; try the .NET library.
 
 So:
 
 - For dashboards the code **generated**, editing through the DOM is safe. The DOM produced the file in the first place.
-- For dashboards **authored in the editor**, prefer the .NET library, keep the original, diff the output, and open both in a `RevealView` before replacing anything. If a lost setting matters, make the change in the editor instead.
+- For dashboards **authored in the editor**, run the loss check first. If it reports losses with one library, try the other (the .NET library keeps more). If both lose something, stop and follow "Use only the DOM" in SKILL.md: tell the user what would be lost, offer an issue draft, and ask whether to skip that change, make it in the Reveal editor, or have you edit the JSON by hand. Don't decide that yourself.
+- Keep the original, run the loss check on your output before you replace anything, and render it.
 - Wrap each load in try/catch, and leave a file untouched when it fails to load.
 
 ## Find, change and delete visualizations
@@ -87,6 +104,7 @@ foreach (var ds in doc.DataSources.Where(d => d.Provider == DataSourceProvider.M
     ds.Properties["Database"] = "sales_prod";
 }
 // Item properties are internal in .NET; a loaded item's table can't be changed through the public API.
+// That's a DOM gap: do this step with the TypeScript library, or ask the user (SKILL.md, "Use only the DOM").
 ```
 
 Rewriting the file is only right for a one-off migration, for example moving shipped dashboards off a retired database. Per-tenant or per-environment connections belong in the server's data source provider at request time (`reveal-embed` data-sources.md). That stays correct for dashboards users save later, and it keeps connection details out of the files.
@@ -110,6 +128,6 @@ The import brings the visualization's data source along, so the target can rende
 
 1. Read from a copy or a backup, never from the only live store.
 2. For each dashboard: load (catch and log failures), apply the change, run the bound-field guard (typescript.md / dotnet.md), and serialize.
-3. Compare visualization and filter counts before and after, and log any difference.
+3. Run `npm run losscheck -- <before> <after>` on each result and compare visualization and filter counts. Report every dashboard that would lose settings to the user before writing anything back.
 4. Open a sample of the results (at least one per distinct layout) in a `RevealView`.
 5. Write back through the same store and provider the app uses, so ids, tenants and authorization stay consistent.

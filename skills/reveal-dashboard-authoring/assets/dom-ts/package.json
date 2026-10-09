@@ -10,6 +10,7 @@
     "sql": "tsx src/examples/sql-server-dashboard.ts",
     "inspect": "tsx src/tools/inspect.ts",
     "api": "tsx src/tools/api.ts",
+    "losscheck": "tsx src/tools/losscheck.ts",
     "test": "tsc --noEmit && tsx test/run-all.ts"
   },
   "dependencies": {

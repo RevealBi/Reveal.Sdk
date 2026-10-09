@@ -9,6 +9,7 @@ npm run api                            # list every class in the installed @reve
 npm run api -- PivotVisualization      # print its real declaration and its base classes'
 npm run api -- --find setRows          # which classes have a member
 npm run inspect -- out/Sales.rdash     # what a .rdash contains (any .rdash, read-only)
+npm run losscheck -- Sales.rdash       # what a round trip through the DOM would drop (add a 2nd file to compare before/after)
 npm run create                         # examples: write out/Sales.rdash
 npm run edit                           #           out/Sales.rdash -> out/Sales-edited.rdash
 npm run sql                            #           database-connector pattern -> out/Orders.rdash
@@ -23,7 +24,7 @@ npx tsx src/my-dashboard.ts            # run your own script
 | `src/lib/sample-data.ts` | The sample `sales` REST/JSON item, field names as constants |
 | `src/lib/guard.ts` | `assertBoundFieldsExist`: catches misspelled fields and date filters bound to `"Date"` |
 | `src/lib/rdash-file.ts` | `saveRdash` (guard + write), `loadRdash`, `readRdashJson` (raw JSON, no DOM) |
-| `src/tools/inspect.ts`, `src/tools/api.ts` | The `inspect` and `api` commands |
+| `src/tools/inspect.ts`, `src/tools/api.ts`, `src/tools/losscheck.ts` | The `inspect`, `api` and `losscheck` commands |
 | `test/run-all.ts` | `npm test` |
 
 Render the output with `../preview`.

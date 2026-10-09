@@ -1,6 +1,9 @@
 // Opens a dashboard in headless Chrome or Edge against the running preview server, saves a
-// screenshot, and reports what rendered: the visible text, and every Reveal request that
-// failed or returned an error. Exit code 1 when any widget request reports an error.
+// screenshot, and reports what rendered: the visible text, every Reveal request that failed
+// or returned an error, uncaught page errors, and widgets that show no data.
+// Exit code 0: every widget loaded data. 3: the only problems are "Authentication not
+// configured" from database connectors, which is expected here (check those in the app).
+// 1: anything else failed. 2: usage or browser problem.
 //
 //     npm run check -- <dashboard id> [--wait 8]        (preview server must be running)
 //     npm run check -- --page client-side.html [id]      the in-browser DOM example
@@ -34,6 +37,8 @@ if (!browser) {
 const page = await browser.newPage({ viewport: { width: 1400, height: 1000 } });
 const problems = [];
 page.on("console", m => { if (m.type() === "error") problems.push(`console: ${m.text()}`); });
+// A visualization that throws while drawing (no request fails) only shows up here.
+page.on("pageerror", e => problems.push(`page error: ${String(e.message).split("\n")[0]}`));
 page.on("response", async r => {
   const url = r.url();
   if (!url.startsWith(`http://localhost:${port}/`) || url.includes("/sample-data/") || url.endsWith("favicon.ico")) return;
@@ -58,15 +63,28 @@ await page.waitForTimeout(wait * 1000);
 
 mkdirSync("screenshots", { recursive: true });
 const shot = `screenshots/${shotName}.png`;
-await page.screenshot({ path: shot, fullPage: true });
+const first = await page.screenshot({ path: shot, fullPage: true });
+// A loaded dashboard is static. A widget whose data arrived but that never finished drawing keeps
+// its loading spinner turning and raises no error, so two screenshots a moment apart must match.
+await page.waitForTimeout(1500);
+const second = await page.screenshot({ fullPage: true });
+if (!first.equals(second)) problems.push("page: something is still moving after the wait, usually a widget stuck on its loading spinner (it never drew)");
 const text = (await page.innerText("body")).replace(/\n{2,}/g, "\n").trim();
 await browser.close();
 
 console.log(`Screenshot: ${shot}\n\nVisible text:\n${text.split("\n").map(l => `  ${l}`).join("\n")}\n`);
 const ignorable = p => /favicon|Failed to load resource: the server responded with a status of 404/.test(p);
 const real = [...new Set(problems)].filter(p => !ignorable(p));
+const databaseOnly = p => /Authentication not configured/.test(p);
+// Reveal reports an empty widget without any error. Database widgets are empty here anyway.
+const empty = (text.match(/There's no data to display/g) ?? []).length;
+if (empty && !real.some(databaseOnly)) real.push(`${empty} widget(s) show "There's no data to display": a binding, filter or data problem`);
 if (real.length) {
   console.log(`Problems:\n${real.map(p => `  ${p}`).join("\n")}`);
+  if (real.every(databaseOnly)) {
+    console.log("\nOnly database connectors failed, which is expected in the preview (exit 3). Check those widgets in the app.");
+    process.exit(3);
+  }
   process.exit(1);
 }
-console.log("No request errors.");
+console.log("No problems: every widget loaded data.");

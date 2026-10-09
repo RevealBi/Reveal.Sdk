@@ -43,7 +43,7 @@ public static class Examples
             .SetLabel(Sales.Category).SetValue(Sales.Revenue)
             .ConnectDashboardFilter(period, Sales.OrderDate).ConnectDashboardFilter(region));
         document.Visualizations.Add(new PivotVisualization("Revenue by region and category", sales)
-            .SetRows(Sales.Region).SetColumns(Sales.Category).SetValues(Sales.Revenue)
+            .SetRows(Sales.Region).SetColumns(Sales.Category).SetValues(revenue)
             .ConnectDashboardFilter(period, Sales.OrderDate).ConnectDashboardFilter(region));
         document.Visualizations.Add(new GridVisualization("Orders", sales)
             .SetColumns(Sales.OrderId, Sales.OrderDate, Sales.Region, Sales.Product, Sales.Quantity, Sales.Revenue)

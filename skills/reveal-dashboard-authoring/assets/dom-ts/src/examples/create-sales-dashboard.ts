@@ -56,7 +56,7 @@ export function createSalesDashboard(): RdashDocument {
       .setLabel(Sales.Category).setValue(Sales.Revenue)
       .connectDashboardFilter(period, Sales.OrderDate).connectDashboardFilter(region),
     new PivotVisualization("Revenue by region and category", sales)
-      .setRows([Sales.Region]).setColumns([Sales.Category]).setValues(Sales.Revenue)   // arrays here
+      .setRows([Sales.Region]).setColumns([Sales.Category]).setValues(revenue)   // arrays here
       .connectDashboardFilter(period, Sales.OrderDate).connectDashboardFilter(region),
     new GridVisualization("Orders", sales)
       .setColumns(Sales.OrderId, Sales.OrderDate, Sales.Region, Sales.Product, Sales.Quantity, Sales.Revenue)

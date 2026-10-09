@@ -1,6 +1,14 @@
 # @revealbi/dom (TypeScript / JavaScript)
 
-Source: https://github.com/RevealBi/revealbi-dom, package `@revealbi/dom`. It ships ESM, CommonJS and a script-tag build (`index.iife.js`, global `RevealDom`), so it works the same under `"type": "module"`, CommonJS and bundlers.
+Source: https://github.com/RevealBi/revealbi-dom, package `@revealbi/dom`. It ships an ES module build (bundlers, Node ESM) and a script-tag build (`index.iife.js`, global `RevealDom`).
+
+**CommonJS:** in 0.3.0 the package's CommonJS entry is broken: `require("@revealbi/dom")` returns an empty object on Node 20 and 22 (no error, `RdashDocument` is `undefined`) and throws `ERR_REQUIRE_ESM` on Node 18. From CommonJS code, which includes most `reveal-sdk-node` servers, load it with a dynamic import:
+
+```js
+const { RdashDocument, ColumnChartVisualization } = await import("@revealbi/dom");
+```
+
+Scripts can also be ES modules: `.mjs` files, or a folder whose `package.json` has `"type": "module"` (the workspace in this skill is one).
 
 ```bash
 npm install @revealbi/dom@latest
@@ -8,7 +16,7 @@ npm install @revealbi/dom@latest
 
 Runnable versions of everything below, plus tests, an API browser and an inspector, are in [assets/dom-ts](../assets/dom-ts/README.md).
 
-**TypeScript configuration:** with `"moduleResolution": "NodeNext"` or `"Node16"`, TypeScript reports `has no exported member` for every import from `@revealbi/dom`, because the package's declarations re-export directories without file extensions. Use `"Bundler"` (Vite, webpack, Angular and `tsx` projects usually already do) or `"Node10"`. The JavaScript itself runs fine either way.
+**TypeScript configuration:** with `"moduleResolution": "NodeNext"` or `"Node16"`, TypeScript reports `has no exported member` for every import from `@revealbi/dom`, and `RdashDocument` silently becomes `any`, because the package's declarations re-export directories without file extensions. Use `"Bundler"` (Vite, webpack, Angular and `tsx` projects usually already do) or `"Node10"`. The JavaScript itself runs fine either way.
 
 ## When the Reveal SDK is needed
 
@@ -36,7 +44,7 @@ import {
   RdashDocument, MicrosoftSqlServerDataSource, MicrosoftSqlServerDataSourceItem,
   TextField, NumberField, DateField, DateDataField, DateAggregationType, NumberDataField, AggregationType,
   ColumnChartVisualization, KpiTimeVisualization, PivotVisualization, GridVisualization,
-  DashboardDataFilter, DashboardDateFilter,
+  DashboardDataFilter, DashboardDateFilter, DateRuleType,
 } from "@revealbi/dom";
 
 // Data: one data source, one item per table. Host/database are placeholders the
@@ -56,6 +64,7 @@ const doc = new RdashDocument("Sales");
 
 const region = new DashboardDataFilter("region", orders);
 const orderDate = new DashboardDateFilter("Order date");
+orderDate.ruleType = DateRuleType.AllTime;               // the default is LastYear ("last 365 days")
 doc.filters = [orderDate, region];
 
 const byMonth = new DateDataField("order_date");
@@ -75,7 +84,7 @@ doc.visualizations = [
 ];
 ```
 
-This exact document was generated with `@revealbi/dom` 0.3.0 and loads in a Reveal 2.2.1 Node server with its title, both filters and all four visualizations.
+This exact document was generated with `@revealbi/dom` 0.3.0 and renders in a Reveal 2.2.1 Node server with its title, both filters and all four visualizations.
 
 ### Other data sources
 
@@ -109,11 +118,12 @@ Node, built per request inside a `reveal-sdk-node` dashboard provider (validate 
 
 ```js
 const { Readable } = require("node:stream");
+const dom = import("@revealbi/dom");          // CommonJS server: require("@revealbi/dom") is empty in 0.3.0
 
 const dashboardProvider = async (userContext, dashboardId) => {
   if (!/^[A-Za-z0-9_-]{1,100}$/.test(dashboardId)) return null;
   if (dashboardId === "TenantOverview") {
-    const doc = buildTenantOverview(tenantOf(userContext));   // returns an RdashDocument
+    const doc = buildTenantOverview(await dom, tenantOf(userContext));   // returns an RdashDocument
     return Readable.from(Buffer.from(await doc.toBlob().arrayBuffer()));
   }
   return loadStoredDashboard(userContext, dashboardId);
@@ -135,7 +145,7 @@ As JSON (for a database column): `doc.toJsonString()`, and later `RdashDocument.
 
 | Source | Call | Needs SDK |
 | --- | --- | --- |
-| `.rdash` bytes (`fs.readFile`, a DB blob, an `ArrayBuffer`) | `await RdashDocument.loadFromBuffer(bytes)` | No |
+| `.rdash` bytes (`fs.readFile`, a DB blob, an `ArrayBuffer`) | `await RdashDocument.loadFromBuffer(bytes)` (typed `ArrayBuffer \| Buffer`: wrap a `Uint8Array` in `Buffer.from(...)` or pass its `.buffer`) | No |
 | `Dashboard.json` text | `RdashDocument.loadFromJson(json)` | No |
 | A `Blob` (file input, `fetch(...).blob()`) | `await RdashDocument.load(blob)` | Yes |
 | A dashboard id on the Reveal server | `await RdashDocument.load("Sales")` | Yes |

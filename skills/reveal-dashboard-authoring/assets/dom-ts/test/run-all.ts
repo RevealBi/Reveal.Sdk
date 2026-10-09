@@ -1,10 +1,11 @@
 // Runs every example and checks the behaviors the skill documents, against the installed
 // @revealbi/dom. Run: npm test   (type-checks first)
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import { rm } from "node:fs/promises";
 import {
-  ColumnChartVisualization, DashboardDateFilter, DateField, GridVisualization, MicrosoftSqlServerDataSource,
-  MicrosoftSqlServerDataSourceItem, NumberField, RdashDocument, TextField,
+  CandleStickVisualization, ColumnChartVisualization, DashboardDateFilter, DateField, DateRuleType, GridVisualization,
+  MicrosoftSqlServerDataSource, MicrosoftSqlServerDataSourceItem, NumberField, RdashDocument, TextField,
 } from "@revealbi/dom";
 import { assertBoundFieldsExist } from "../src/lib/guard.js";
 import { loadRdash, readRdashJson, saveRdash } from "../src/lib/rdash-file.js";
@@ -96,6 +97,28 @@ await test("trap: a loaded item has no fields; they are on the visualization's d
   const v = doc.visualizations[1];
   assert.equal(v.dataDefinition.dataSourceItem!.fields.length, 0);
   assert.equal((v.dataDefinition as { fields?: unknown[] }).fields?.length, 7);
+});
+
+await test("trap: a new date filter defaults to the last 365 days, not all time", () => {
+  assert.equal(new DashboardDateFilter("p").ruleType, DateRuleType.LastYear);
+});
+
+// Known DOM gaps (SKILL.md, "Use only the DOM"). When one of these fails, the library fixed it:
+// update SKILL.md and the references.
+await test("gap: a Candlestick chart can't be loaded back, even the DOM's own", () => {
+  const doc = new RdashDocument("x");
+  doc.visualizations = [new CandleStickVisualization("c", item()).setLabel("region").setOpen("total").setHigh("total").setLow("total").setClose("total")];
+  assert.throws(() => RdashDocument.loadFromJson(doc.toJsonString()), /Chart type not supported: Candlestick/);
+});
+
+await test("gap: require(\"@revealbi/dom\") from CommonJS gives no RdashDocument", () => {
+  const r = spawnSync(process.execPath, ["-e", "try { console.log(typeof require('@revealbi/dom').RdashDocument) } catch (e) { console.log(e.code) }"], { encoding: "utf8" });
+  assert.notEqual(r.stdout.trim(), "function", "require() works now: update typescript.md and SKILL.md");
+});
+
+await test("losscheck: a generated dashboard loses nothing in a round trip", () => {
+  const r = spawnSync(process.execPath, ["--import", "tsx", "src/tools/losscheck.ts", `${dir}/Sales.rdash`], { encoding: "utf8" });
+  assert.equal(r.status, 0, r.stdout + r.stderr);
 });
 
 await test("loaded data sources are base classes: use provider and properties", async () => {
