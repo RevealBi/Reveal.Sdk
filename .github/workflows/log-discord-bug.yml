@@ -1,0 +1,51 @@
+name: Log Discord bug
+on:
+  workflow_dispatch:
+    inputs:
+      title:           { required: true,  type: string }
+      summary:         { required: true,  type: string }
+      source_id:       { required: true,  type: string, description: Discord message ID (duplicate key) }
+      source_url:      { required: true,  type: string }
+      reply_thread_id: { required: false, type: string, description: Thread to post the issue link back to }
+      logged_by:       { required: true,  type: string }
+
+permissions:
+  issues: write
+
+jobs:
+  log:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create issue (or reuse existing)
+        id: issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TITLE: ${{ inputs.title }}
+          SUMMARY: ${{ inputs.summary }}
+          SOURCE_ID: ${{ inputs.source_id }}
+          SOURCE_URL: ${{ inputs.source_url }}
+          LOGGED_BY: ${{ inputs.logged_by }}
+        run: |
+          marker="Discord ref: $SOURCE_ID"
+          url=$(gh issue list --state all --search "\"$SOURCE_ID\" in:body" --json url --jq '.[0].url // empty')
+          if [ -z "$url" ]; then
+            body=$(printf '%s\n\n---\nReported on Discord: %s\nLogged by: %s\n%s' "$SUMMARY" "$SOURCE_URL" "$LOGGED_BY" "$marker")
+            url=$(gh issue create --title "$TITLE" --body "$body" --label "source: discord")
+          fi
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+
+      - name: Post link back to Discord
+        env:
+          BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
+          SOURCE_URL: ${{ inputs.source_url }}
+          URL: ${{ steps.issue.outputs.url }}
+        run: |
+          # source_url is https://discord.com/channels/<guild>/<channel or thread>/<message>
+          IFS=/ read -r _ _ _ _ _ channel message <<< "$SOURCE_URL"
+          [[ "$channel" =~ ^[0-9]+$ && "$message" =~ ^[0-9]+$ ]] || { echo "Unexpected source_url: $SOURCE_URL"; exit 1; }
+          jq -n --arg c "Tracked in $URL" --arg m "$message" \
+            '{content: $c, message_reference: {message_id: $m, fail_if_not_exists: false}, allowed_mentions: {parse: [], replied_user: false}}' \
+            | curl -sf -H "Authorization: Bot $BOT_TOKEN" -H 'Content-Type: application/json' \
+                -A 'DiscordBot (https://github.com, 1.0)' \
+                -d @- "https://discord.com/api/v10/channels/$channel/messages"
