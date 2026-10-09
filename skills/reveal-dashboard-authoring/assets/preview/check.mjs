@@ -1,6 +1,7 @@
 // Opens a dashboard in headless Chrome or Edge against the running preview server, saves a
 // screenshot, and reports what rendered: the visible text, every Reveal request that failed
-// or returned an error, uncaught page errors, and widgets that show no data.
+// or returned an error, uncaught page errors, widgets that show no data, and widgets still
+// loading after the wait.
 // Exit code 0: every widget loaded data. 3: the only problems are "Authentication not
 // configured" from database connectors, which is expected here (check those in the app).
 // 1: anything else failed. 2: usage or browser problem.

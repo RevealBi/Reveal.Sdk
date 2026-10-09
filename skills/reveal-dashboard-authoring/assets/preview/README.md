@@ -43,7 +43,7 @@ Widgets bound to a real database (SQL Server, Postgres, ...) report "Authenticat
 | `no such column: X` | The visualization binds a field the data doesn't have. Run the bound-field guard; the item's declared fields don't match the data. |
 | `Authentication not configured {"ds-id":"..."}` | A database connector, expected in the preview (exit 3). |
 | `page error: Cannot read properties of null (reading 'dateFormat')` | A visualization crashed while drawing; with `@revealbi/dom` 0.3.0 this is a `TimeSeriesVisualization` (SKILL.md, known gaps). |
-| `something is still moving after the wait` | A widget got its data but never drew and keeps its loading spinner turning, with no error anywhere. With `@revealbi/dom` 0.3.0 and `main` this is a `TimeSeriesVisualization`. |
+| `something is still moving after the wait` | A widget got its data but never drew and keeps its loading spinner turning, with no error anywhere. With `@revealbi/dom` 0.3.0 this is a `TimeSeriesVisualization`. |
 | `N widget(s) show "There's no data to display"` | The query returned no rows: a filter that excludes everything (a date filter's default is the last 365 days), a wrong field type, or data that doesn't match. |
 | `Could not load "<id>"` on the page | The file is missing from the folder, or the id has characters other than letters, digits, `-` and `_`. |
 | Widget errors with no further detail | Read `logs/` (the engine log). |

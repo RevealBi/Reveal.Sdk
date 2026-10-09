@@ -23,7 +23,7 @@ Don't hand back DOM code you haven't run. The assets make every step a command. 
 1. **Set up a workspace.**
    - No suitable project yet, or a one-off job: copy `assets/dom-ts` (or `assets/dom-dotnet`) to a tools folder in the user's repository, for example `tools/dashboards/`, and run `npm install` / `dotnet build` there. Don't install into the skill folder.
    - Existing TypeScript project: `npm install @revealbi/dom@latest`, then copy `src/lib/guard.ts` and `src/lib/rdash-file.ts` from the workspace. If its `tsconfig.json` uses `"moduleResolution": "NodeNext"` or `"Node16"`, TypeScript sees no exports from `@revealbi/dom`. Use `"Bundler"` (or `"Node10"`) for the code that imports it.
-   - **CommonJS code** (`require`, no `"type": "module"`, which includes most `reveal-sdk-node` servers): `require("@revealbi/dom")` returns an empty object in 0.3.0, with no error. Use `const { RdashDocument } = await import("@revealbi/dom")`, or put the script in an ES module (`.mjs`, or a folder whose `package.json` has `"type": "module"`).
+   - **CommonJS code** (`require`, no `"type": "module"`, which includes most `reveal-sdk-node` servers): `require("@revealbi/dom")` returns an empty object in 0.3.0, with no error. Use `const { RdashDocument } = await import("@revealbi/dom")` ([#64](https://github.com/RevealBi/revealbi-dom/issues/64)), or put the script in an ES module (`.mjs`, or a folder whose `package.json` has `"type": "module"`).
    - Existing .NET project: add the package and copy `Guard.cs`.
 2. **Read the real API.** `npm run api` lists every class; `npm run api -- PivotVisualization` shows its setters; `npm run api -- --find connectDashboardFilter` finds members. In .NET, use go-to-definition. [visualizations.md](references/visualizations.md) says which setters each visualization needs.
 3. **Look before you edit.** `npm run inspect -- path/to/Existing.rdash` prints its data sources, items and declared fields, filters, and each visualization's type, bindings and filter connections. It reads any `.rdash`, including ones the DOM can't load. `npm run losscheck -- path/to/Existing.rdash` shows what saving it through the DOM would drop.
@@ -57,21 +57,21 @@ A DOM-only substitute that shows the same live data (a line chart by day where a
 
 Known gaps, verified against `@revealbi/dom` 0.3.0, `Reveal.Sdk.Dom` 0.1.688 and Reveal 2.2.1:
 
-| Gap | Library |
-| --- | --- |
-| A `TimeSeriesVisualization` never renders: as built by `setDate(...)` it either crashes the Reveal client (hiding the widgets after it) or stays on its loading spinner | TypeScript |
-| A dashboard with a Candlestick chart can't be loaded, even one the DOM created (`Chart type not supported: Candlestick`) | TypeScript |
-| Only one dashboard date filter: every date filter gets the id `_date` | TypeScript (.NET supports several) |
-| No public way to filter "top N categories by an aggregated value"; a Top N rule filters source rows. Don't bake in a list of values you computed instead: ask ([visualizations.md](references/visualizations.md#filters)) | Both |
-| A dashboard with a Top N rule on a text field can't be loaded | .NET |
-| A loaded item's table or schema can't be changed (`DataSourceItem.Properties` is internal) | .NET |
-| A round trip drops settings of editor-made dashboards: hidden fields and custom date formats; TypeScript also sort order, grid grouping, column hyperlinks and the refresh rate ([editing.md](references/editing.md)) | Both, TypeScript more |
+| Gap | Library | Tracked in |
+| --- | --- | --- |
+| A `TimeSeriesVisualization` never renders: as built by `setDate(...)` it either crashes the Reveal client (hiding the widgets after it) or stays on its loading spinner | TypeScript | [#65](https://github.com/RevealBi/revealbi-dom/issues/65) |
+| A dashboard with a Candlestick chart can't be loaded, even one the DOM created (`Chart type not supported: Candlestick`) | TypeScript | [#67](https://github.com/RevealBi/revealbi-dom/issues/67) |
+| Only one dashboard date filter: every date filter gets the id `_date` | TypeScript (.NET supports several) | [PR #63](https://github.com/RevealBi/revealbi-dom/pull/63) |
+| No public way to filter "top N categories by an aggregated value"; a Top N rule filters source rows. Don't bake in a list of values you computed instead: ask ([visualizations.md](references/visualizations.md#filters)) | Both | [#69](https://github.com/RevealBi/revealbi-dom/issues/69), [.NET #441](https://github.com/RevealBi/Reveal.Sdk.Dom/issues/441) |
+| A dashboard with a Top N rule on a text field can't be loaded | .NET | [#437](https://github.com/RevealBi/Reveal.Sdk.Dom/issues/437) |
+| A loaded item's table or schema can't be changed (`DataSourceItem.Properties` is internal) | .NET | [#438](https://github.com/RevealBi/Reveal.Sdk.Dom/issues/438) |
+| A round trip drops settings of editor-made dashboards: hidden fields and custom date formats; TypeScript also sort order, grid grouping, column hyperlinks and the refresh rate ([editing.md](references/editing.md)) | Both, TypeScript more | [#73](https://github.com/RevealBi/revealbi-dom/issues/73), [#58](https://github.com/RevealBi/revealbi-dom/issues/58), [#62](https://github.com/RevealBi/revealbi-dom/issues/62), [.NET #440](https://github.com/RevealBi/Reveal.Sdk.Dom/issues/440) |
 
 ## Rules and traps
 
-Every item here was observed by running the libraries, and the workspace tests check them:
+Every item here was observed by running the libraries, and the workspace tests check most of them:
 
-- **Wrong field names fail silently.** Serialization doesn't check that bound names exist among the item's declared `fields`. Reveal later fails the widget with `no such column`. Save through the guard, and keep field names in constants (`Sales.Revenue`).
+- **Wrong field names fail silently.** Serialization doesn't check that bound names exist among the item's declared `fields` ([#70](https://github.com/RevealBi/revealbi-dom/issues/70)). Reveal later fails the widget with `no such column`. Save through the guard, and keep field names in constants (`Sales.Revenue`).
 - **Name the field when connecting a date filter.** `connectDashboardFilter(dateFilter)` binds a field literally called `"Date"`, in both libraries. The guard catches it.
 - **Set the date filter's rule.** A TypeScript `new DashboardDateFilter("Order date")` defaults to "last 365 days" (`DateRuleType.LastYear`), which hides older data. Set `ruleType = DateRuleType.AllTime` (or the rule the user wants). .NET requires a `DateFilterRule` in the constructor.
 - **TypeScript: one date filter per dashboard.** Every TypeScript date filter gets the id `_date`. .NET gives each its own id.

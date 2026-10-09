@@ -94,7 +94,7 @@ function printGroups(list: string[]) {
   for (const [key, items] of groups) console.log(`  ${items.length} x ${key}\n      e.g. ${items[0]}`);
 }
 if (other.length) {
-  console.log(`${other.length} other propert(ies) dropped. Often legacy settings Reveal no longer reads; if one looks visible, render the original and the result and compare:`);
+  console.log(`${other.length} other ${other.length === 1 ? "property" : "properties"} dropped. Often legacy settings Reveal no longer reads; if one looks visible, render the original and the result and compare:`);
   printGroups(other);
   console.log();
 }

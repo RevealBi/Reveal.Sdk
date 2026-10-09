@@ -15,7 +15,7 @@ A setter takes a field name string or a typed data field (`NumberDataField`, `Da
 | `KpiTime` | `setDate`, `setValue`, optional `setCategories([...])` |
 | `KpiTarget` | `setDate`, `setValue`, `setTarget` |
 | `Sparkline` | `setDate`, `setValue`, optional `setCategory` |
-| `TimeSeries` | **Never renders in 0.3.0** (crashes the Reveal client or stays on its spinner; SKILL.md, "Use only the DOM"). Offer a `LineChart` with `setLabel(dateDataField)` instead |
+| `TimeSeries` | **Never renders in 0.3.0** (crashes the Reveal client or stays on its spinner, [#65](https://github.com/RevealBi/revealbi-dom/issues/65); SKILL.md, "Use only the DOM"). Offer a `LineChart` with `setLabel(dateDataField)` instead |
 | `CircularGauge`, `Text` (single value) | `setLabel`, `setValue` |
 | `LinearGauge`, `BulletGraph` | `setLabel`, `setValue`, plus `setTarget` (bullet) |
 | `Grid`, `TextView` | `setColumns("a", "b", ...)` |
@@ -23,7 +23,7 @@ A setter takes a field name string or a typed data field (`NumberDataField`, `Da
 | `TreeMap` | `setLabels(...)`, `setValue` |
 | `Choropleth` | `setMap(...)`, `setLocation`, `setValue` |
 | `ScatterMap` | `setMap(...)`, `setLatitude`, `setLongitude`, `setLabel`, optional `setColorByValue` / `setColorByCategory` |
-| `CandleStick`, `OHLC` | `setLabel`, `setOpen`, `setHigh`, `setLow`, `setClose`. TypeScript can't load a dashboard that contains a Candlestick, even its own; prefer `OHLC` there |
+| `CandleStick`, `OHLC` | `setLabel`, `setOpen`, `setHigh`, `setLow`, `setClose`. TypeScript can't load a dashboard that contains a Candlestick, even its own ([#67](https://github.com/RevealBi/revealbi-dom/issues/67)); prefer `OHLC` there |
 | `TextBox` | `new TextBoxVisualization(title)` (no data source item), then `setText`, `setFontSize`, `setAlignment` |
 | `Image` | `setUrl(field)`: binds a **column** that holds image URLs, so it needs a data source item |
 | `Custom` | `setUrl` (the custom visualization page), `setRows`, `setColumns`, `setValues` |
@@ -92,7 +92,7 @@ bigOrders.value = 10;
 chart.addDataFilter("total_amount", bigOrders);              // the 10 largest orders, then grouped by the label
 ```
 
-That is **not** "top 10 regions by revenue": on a chart of revenue by product, `TopItems` 3 on the revenue field showed one bar (the 3 largest orders), and the same rule on the product field had no effect. 0.3.0 has no public API for top N categories by an aggregated value, so treat that request as a DOM gap (SKILL.md, "Use only the DOM"): don't ship a chart that isn't the top N, and **don't pick a workaround yourself: stop and ask** (SKILL.md, step 3). These are the options to put to the user, not a recipe to apply: all categories sorted by the value (`revenue.sorting = SortingType.Desc`), a fixed `selectValues(...)` list computed while generating (it goes stale as data changes, and must be computed from the full data the dashboard will show, not a sample), or building the chart in the Reveal editor.
+That is **not** "top 10 regions by revenue": on a chart of revenue by product, `TopItems` 3 on the revenue field showed one bar (the 3 largest orders), and the same rule on the product field had no effect. 0.3.0 has no public API for top N categories by an aggregated value ([#69](https://github.com/RevealBi/revealbi-dom/issues/69), [.NET #441](https://github.com/RevealBi/Reveal.Sdk.Dom/issues/441)), so treat that request as a DOM gap (SKILL.md, "Use only the DOM"): don't ship a chart that isn't the top N, and **don't pick a workaround yourself: stop and ask** (SKILL.md, step 3). These are the options to put to the user, not a recipe to apply: all categories sorted by the value (`revenue.sorting = SortingType.Desc`), a fixed `selectValues(...)` list computed while generating (it goes stale as data changes, and must be computed from the full data the dashboard will show, not a sample), or building the chart in the Reveal editor.
 
 `TextFilter`, `DateTimeFilter` and `TimeFilter` work the same way. In .NET, date filters take a `DateFilterRule` (dotnet.md).
 
@@ -104,4 +104,4 @@ chart.linker = new VisualizationLinker()
   .addDashboard("Region detail", "RegionDetail", [new LinkFilter("Region", targetFilter.id, "region")]);
 ```
 
-`LinkFilter(name, targetFilterId, value)`: `targetFilter` comes from the target dashboard (`(await RdashDocument.load("RegionDetail")).filters`), so the link carries that dashboard's filter id, and `value` is the **source** column whose clicked value is passed (`"region"` here), not the target filter's title. The library's own sample passes `targetFilter.title`, which only works when the title happens to equal the source column. Linked dashboard ids go through the server's dashboard provider like any other load, so the user must be authorized for them too.
+`LinkFilter(name, targetFilterId, value)`: `targetFilter` comes from the target dashboard (`(await RdashDocument.load("RegionDetail")).filters`), so the link carries that dashboard's filter id, and `value` is the **source** column whose clicked value is passed (`"region"` here), not the target filter's title. The library's own sample passes `targetFilter.title`, which only works when the title happens to equal the source column ([#71](https://github.com/RevealBi/revealbi-dom/issues/71)). Linked dashboard ids go through the server's dashboard provider like any other load, so the user must be authorized for them too.

@@ -2,7 +2,7 @@
 
 Source: https://github.com/RevealBi/revealbi-dom, package `@revealbi/dom`. It ships an ES module build (bundlers, Node ESM) and a script-tag build (`index.iife.js`, global `RevealDom`).
 
-**CommonJS:** in 0.3.0 the package's CommonJS entry is broken: `require("@revealbi/dom")` returns an empty object on Node 20 and 22 (no error, `RdashDocument` is `undefined`) and throws `ERR_REQUIRE_ESM` on Node 18. From CommonJS code, which includes most `reveal-sdk-node` servers, load it with a dynamic import:
+**CommonJS:** in 0.3.0 the package's CommonJS entry doesn't work: `require("@revealbi/dom")` returns an empty object on Node 20 and 22 (no error, `RdashDocument` is `undefined`) and throws `ERR_REQUIRE_ESM` on Node 18 ([#64](https://github.com/RevealBi/revealbi-dom/issues/64)). From CommonJS code, which includes most `reveal-sdk-node` servers, load it with a dynamic import:
 
 ```js
 const { RdashDocument, ColumnChartVisualization } = await import("@revealbi/dom");
@@ -16,7 +16,7 @@ npm install @revealbi/dom@latest
 
 Runnable versions of everything below, plus tests, an API browser and an inspector, are in [assets/dom-ts](../assets/dom-ts/README.md).
 
-**TypeScript configuration:** with `"moduleResolution": "NodeNext"` or `"Node16"`, TypeScript reports `has no exported member` for every import from `@revealbi/dom`, and `RdashDocument` silently becomes `any`, because the package's declarations re-export directories without file extensions. Use `"Bundler"` (Vite, webpack, Angular and `tsx` projects usually already do) or `"Node10"`. The JavaScript itself runs fine either way.
+**TypeScript configuration:** with `"moduleResolution": "NodeNext"` or `"Node16"`, TypeScript reports `has no exported member` for every import from `@revealbi/dom`, and `RdashDocument` silently becomes `any`, because the package's declarations re-export directories without file extensions ([#68](https://github.com/RevealBi/revealbi-dom/issues/68)). Use `"Bundler"` (Vite, webpack, Angular and `tsx` projects usually already do) or `"Node10"`. The JavaScript itself runs fine either way.
 
 ## When the Reveal SDK is needed
 
@@ -145,7 +145,7 @@ As JSON (for a database column): `doc.toJsonString()`, and later `RdashDocument.
 
 | Source | Call | Needs SDK |
 | --- | --- | --- |
-| `.rdash` bytes (`fs.readFile`, a DB blob, an `ArrayBuffer`) | `await RdashDocument.loadFromBuffer(bytes)` (typed `ArrayBuffer \| Buffer`: wrap a `Uint8Array` in `Buffer.from(...)` or pass its `.buffer`) | No |
+| `.rdash` bytes (`fs.readFile`, a DB blob, an `ArrayBuffer`) | `await RdashDocument.loadFromBuffer(bytes)` (typed `ArrayBuffer \| Buffer`: wrap a `Uint8Array` in `Buffer.from(...)` or pass its `.buffer`, [#72](https://github.com/RevealBi/revealbi-dom/issues/72)) | No |
 | `Dashboard.json` text | `RdashDocument.loadFromJson(json)` | No |
 | A `Blob` (file input, `fetch(...).blob()`) | `await RdashDocument.load(blob)` | Yes |
 | A dashboard id on the Reveal server | `await RdashDocument.load("Sales")` | Yes |
