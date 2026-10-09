@@ -2,7 +2,8 @@
 // @revealbi/dom. Run: npm test   (type-checks first)
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { rm } from "node:fs/promises";
+import { mkdir, rm, writeFile } from "node:fs/promises";
+import { strToU8, zipSync } from "fflate";
 import {
   CandleStickVisualization, ColumnChartVisualization, DashboardDateFilter, DateField, DateRuleType, GridVisualization,
   MicrosoftSqlServerDataSource, MicrosoftSqlServerDataSourceItem, NumberField, RdashDocument, TextField,
@@ -118,6 +119,36 @@ await test("gap: require(\"@revealbi/dom\") from CommonJS gives no RdashDocument
 
 await test("losscheck: a generated dashboard loses nothing in a round trip", () => {
   const r = spawnSync(process.execPath, ["--import", "tsx", "src/tools/losscheck.ts", `${dir}/Sales.rdash`], { encoding: "utf8" });
+  assert.equal(r.status, 0, r.stdout + r.stderr);
+});
+
+// losscheck must exit 1 when something visible is lost. Two hand-made files, compared directly.
+const loss = async (name: string, before: object, after: object) => {
+  await mkdir(dir, { recursive: true });
+  const zip = (o: object) => Buffer.from(zipSync({ "Dashboard.json": strToU8(JSON.stringify(o)) }));
+  await writeFile(`${dir}/${name}-before.rdash`, zip(before));
+  await writeFile(`${dir}/${name}-after.rdash`, zip(after));
+  return spawnSync(process.execPath, ["--import", "tsx", "src/tools/losscheck.ts", `${dir}/${name}-before.rdash`, `${dir}/${name}-after.rdash`], { encoding: "utf8" });
+};
+const widget = (extra: object) => ({ Widgets: [{ Id: "w1", Title: "W", ...extra }] });
+
+await test("losscheck: a dropped DecimalDigits of 0 is a loss (0 is a real setting)", async () => {
+  const r = await loss("digits", widget({ Formatting: { DecimalDigits: 0 } }), widget({ Formatting: {} }));
+  assert.equal(r.status, 1, r.stdout + r.stderr);
+});
+
+await test("losscheck: a dropped UseAutoLayout of false is a loss (its default is true)", async () => {
+  const r = await loss("layout", widget({ UseAutoLayout: false }), widget({}));
+  assert.equal(r.status, 1, r.stdout + r.stderr);
+});
+
+await test("losscheck: a dropped Formatting block is a loss", async () => {
+  const r = await loss("format", widget({ Formatting: { CurrencySymbol: "$" } }), widget({}));
+  assert.equal(r.status, 1, r.stdout + r.stderr);
+});
+
+await test("losscheck: a dropped default value (false, None) is not a loss", async () => {
+  const r = await loss("default", widget({ IsHidden: false, Pinning: "None" }), widget({}));
   assert.equal(r.status, 0, r.stdout + r.stderr);
 });
 

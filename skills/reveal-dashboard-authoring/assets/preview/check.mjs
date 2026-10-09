@@ -77,9 +77,12 @@ console.log(`Screenshot: ${shot}\n\nVisible text:\n${text.split("\n").map(l => `
 const ignorable = p => /favicon|Failed to load resource: the server responded with a status of 404/.test(p);
 const real = [...new Set(problems)].filter(p => !ignorable(p));
 const databaseOnly = p => /Authentication not configured/.test(p);
-// Reveal reports an empty widget without any error. Database widgets are empty here anyway.
+// Reveal reports an empty widget without any error. Each failed database widget is empty here anyway,
+// so only empties beyond the database failures count (an unexplained empty widget still fails).
 const empty = (text.match(/There's no data to display/g) ?? []).length;
-if (empty && !real.some(databaseOnly)) real.push(`${empty} widget(s) show "There's no data to display": a binding, filter or data problem`);
+const dbFailures = problems.filter(p => p.startsWith("widget error:") && databaseOnly(p)).length;
+const unexplained = empty - dbFailures;
+if (unexplained > 0) real.push(`${unexplained} widget(s) show "There's no data to display": a binding, filter or data problem`);
 if (real.length) {
   console.log(`Problems:\n${real.map(p => `  ${p}`).join("\n")}`);
   if (real.every(databaseOnly)) {

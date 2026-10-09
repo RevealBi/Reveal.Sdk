@@ -4,7 +4,7 @@
 //   npm run losscheck -- Sales.rdash                  load + save with @revealbi/dom, compare
 //   npm run losscheck -- before.rdash after.rdash     compare any two files (e.g. .NET output)
 //
-// Visualizations and filters are matched by id, so ones you removed on purpose aren't reported.
+// With two files, visualizations and filters are matched by id, so ones you removed on purpose aren't reported.
 // Exit code 0: nothing user-visible lost (changed values are listed for review). 1: settings lost.
 // 2: the DOM can't load the file.
 import { readFile } from "node:fs/promises";
@@ -33,36 +33,40 @@ if (afterPath) {
 
 // Values Reveal applies anyway when a property is missing, so dropping them changes nothing.
 // An object counts as default when every value in it does (e.g. date-time settings left at 0 / false).
-const isDefault = (v: unknown): boolean =>
+// Falsy is not always the default: for these properties 0 / false is a real setting, so losing it is a loss.
+const FALSY_IS_MEANINGFUL = new Set(["UseAutoLayout", "DecimalDigits"]);
+const isDefault = (v: unknown, key = ""): boolean =>
+  !(FALSY_IS_MEANINGFUL.has(key) && (v === false || v === 0)) && (
   v === null || v === false || v === 0 || v === "" || v === "None" || v === "Auto" || v === "Inherit" ||
   (Array.isArray(v) && v.length === 0) ||
-  (typeof v === "object" && v !== null && !Array.isArray(v) && Object.entries(v).every(([k, x]) => k === "_type" || isDefault(x)));
+  (typeof v === "object" && v !== null && !Array.isArray(v) && Object.entries(v).every(([k, x]) => k === "_type" || isDefault(x, k))));
 const IGNORE = new Set(["_type", "SavedWith", "FormatVersion"]);
 
 const losses: string[] = [];   // present before, gone after
 const changes: string[] = [];  // value differs: may be your own edit, so listed for review only
-function walk(a: J, b: J, path: string) {
+function walk(a: J, b: J, path: string, key = "") {
   if (a === null || typeof a !== "object") {
-    if (b === undefined) { if (!isDefault(a)) losses.push(`${path}: ${JSON.stringify(a)} -> (dropped)`); }
+    if (b === undefined) { if (!isDefault(a, key)) losses.push(`${path}: ${JSON.stringify(a)} -> (dropped)`); }
     else if (b !== a && String(b).toLowerCase() !== String(a).toLowerCase()) changes.push(`${path}: ${JSON.stringify(a)} -> ${JSON.stringify(b)}`);
     return;
   }
   if (Array.isArray(a)) {
     if (!Array.isArray(b)) { if (!isDefault(a)) losses.push(`${path}: list is gone`); return; }
-    // Match objects with an Id (widgets, filters) by id; others by position.
+    // Match objects with an Id (widgets, filters) by id; others by position. With two files, an id that
+    // vanished was removed on purpose. In a one-file round trip nobody removed anything, so it is a loss.
     const byId = a.every((x: J) => x && typeof x === "object" && "Id" in x);
     a.forEach((x: J, i: number) => {
       const y = byId ? b.find((z: J) => z?.Id === x.Id) : b[i];
-      if (byId && !y) return; // removed on purpose
+      if (byId && !y) { if (!afterPath) losses.push(`${path}[${JSON.stringify(x.Title ?? x.Id)}]: object is gone`); return; }
       walk(x, y, `${path}[${byId ? JSON.stringify(x.Title ?? x.Id) : i}]`);
     });
     return;
   }
-  if (b === null || typeof b !== "object") { if (!isDefault(a)) losses.push(`${path}: object is gone`); return; }
+  if (b === null || typeof b !== "object") { if (!isDefault(a, key)) losses.push(`${path}: object is gone`); return; }
   for (const [k, v] of Object.entries(a)) {
     if (IGNORE.has(k)) continue;
-    if (!(k in b)) { if (!isDefault(v)) losses.push(`${path}.${k}: ${JSON.stringify(v).slice(0, 80)} -> (dropped)`); continue; }
-    walk(v, b[k], `${path}.${k}`);
+    if (!(k in b)) { if (!isDefault(v, k)) losses.push(`${path}.${k}: ${JSON.stringify(v).slice(0, 80)} -> (dropped)`); continue; }
+    walk(v, b[k], `${path}.${k}`, k);
   }
 }
 walk(before, after, "");
@@ -75,7 +79,7 @@ if (changes.length) {
 }
 // Settings known to change what users see. Other dropped properties are often legacy ones that
 // older editors wrote and Reveal no longer reads (SummarizationSpec, LabelField, ...): listed, not failed.
-const VISIBLE = new Set(["IsHidden", "Formatting", "DateFormat", "FormatType", "DecimalDigits", "CurrencySymbol", "Sorting", "GroupedColumns", "SortedColumns", "Hyperlink", "Pinning", "Settings", "DefaultRefreshRate", "Title", "Description", "Filter", "Bindings", "SelectedItems", "RuleType", "ColumnSpan", "RowSpan"]);
+const VISIBLE = new Set(["Widgets", "Filters", "UseAutoLayout", "IsHidden", "Formatting", "DateFormat", "FormatType", "DecimalDigits", "CurrencySymbol", "Sorting", "GroupedColumns", "SortedColumns", "Hyperlink", "Pinning", "Settings", "DefaultRefreshRate", "Title", "Description", "Filter", "Bindings", "SelectedItems", "RuleType", "ColumnSpan", "RowSpan"]);
 // SummarizationSpec is a legacy block. VisualizationDataSpec.Columns[].Sorting is never read by Reveal:
 // a grid's sort order lives on DataSpec.Fields[].Sorting.
 const LEGACY = /\.SummarizationSpec\b|VisualizationDataSpec\.Columns\[[^\]]*\]\.Sorting/;
