@@ -78,11 +78,17 @@ const ignorable = p => /favicon|Failed to load resource: the server responded wi
 const real = [...new Set(problems)].filter(p => !ignorable(p));
 const databaseOnly = p => /Authentication not configured/.test(p);
 // Reveal reports an empty widget without any error. Each failed database widget is empty here anyway,
-// so only empties beyond the database failures count (an unexplained empty widget still fails).
+// so only empties beyond the database failures count. The counts are not matched widget by widget
+// (the error carries a data source id, not a widget), so with database errors present an empty
+// REST widget can hide behind a database widget that did not render an empty state: the empty
+// widgets are listed below so they can be checked against the database ones.
 const empty = (text.match(/There's no data to display/g) ?? []).length;
 const dbFailures = problems.filter(p => p.startsWith("widget error:") && databaseOnly(p)).length;
 const unexplained = empty - dbFailures;
 if (unexplained > 0) real.push(`${unexplained} widget(s) show "There's no data to display": a binding, filter or data problem`);
+if (empty && real.some(databaseOnly)) {
+  console.log(`${empty} empty widget(s) and ${dbFailures} database failure(s): confirm each empty one is a database widget (they are matched by count, not by widget).`);
+}
 if (real.length) {
   console.log(`Problems:\n${real.map(p => `  ${p}`).join("\n")}`);
   if (real.every(databaseOnly)) {

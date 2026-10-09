@@ -47,7 +47,7 @@ const changes: string[] = [];  // value differs: may be your own edit, so listed
 function walk(a: J, b: J, path: string, key = "") {
   if (a === null || typeof a !== "object") {
     if (b === undefined) { if (!isDefault(a, key)) losses.push(`${path}: ${JSON.stringify(a)} -> (dropped)`); }
-    else if (b !== a && String(b).toLowerCase() !== String(a).toLowerCase()) changes.push(`${path}: ${JSON.stringify(a)} -> ${JSON.stringify(b)}`);
+    else if (b !== a) changes.push(`${path}: ${JSON.stringify(a)} -> ${JSON.stringify(b)}`);
     return;
   }
   if (Array.isArray(a)) {

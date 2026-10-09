@@ -147,6 +147,12 @@ await test("losscheck: a dropped Formatting block is a loss", async () => {
   assert.equal(r.status, 1, r.stdout + r.stderr);
 });
 
+await test("losscheck: a case-only change is listed for review, not hidden", async () => {
+  const r = await loss("case", widget({ Title: "Revenue" }), widget({ Title: "revenue" }));
+  assert.equal(r.status, 0, r.stdout + r.stderr);
+  assert.match(r.stdout, /"Revenue" -> "revenue"/);
+});
+
 await test("losscheck: a dropped default value (false, None) is not a loss", async () => {
   const r = await loss("default", widget({ IsHidden: false, Pinning: "None" }), widget({}));
   assert.equal(r.status, 0, r.stdout + r.stderr);
