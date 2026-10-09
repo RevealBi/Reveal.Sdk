@@ -30,6 +30,8 @@ gh skill install RevealBi/Reveal.Sdk reveal-dashboard-authoring
 npx skills add RevealBi/Reveal.Sdk --skill reveal-dashboard-authoring
 ```
 
+`gh skill install` downloads each file through the GitHub API. Without signing in, GitHub allows 60 API requests per hour, and the two skills together have more files than that. Run `gh auth login` first (or set `GH_TOKEN`) to avoid `HTTP 403: API rate limit exceeded`. `npx skills add` clones the repo with git, so the API limit doesn't apply to it.
+
 In Claude Code you can also run `/plugin marketplace add RevealBi/Reveal.Sdk`, then `/plugin install reveal-sdk@reveal-sdk`.
 
 To install by hand, copy the skill folders into your project. `.claude/skills/<name>/` is read by Claude Code, GitHub Copilot (VS Code and CLI) and Cursor alike. Copilot also reads `.github/skills/`, and Copilot and Cursor read `.agents/skills/`. Commit the folder so everyone on the project gets the skills.
