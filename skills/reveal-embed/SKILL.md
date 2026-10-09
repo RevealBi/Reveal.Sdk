@@ -1,6 +1,6 @@
 ---
 name: reveal-embed
-description: "Helps developers embed Reveal SDK (Reveal BI, revealbi.io) dashboards in their own applications. Use for Reveal setup, integration, configuration, security or deployment: ASP.NET Core, Node.js/Express or Java/Spring Boot/Tomcat servers; HTML/JavaScript, Angular, React, Vue or web-component clients; data sources, server-side credentials, user context, row-level security, multi-tenancy, loading, saving and creating dashboards, theming, export, licensing and production; and troubleshooting a RevealView that is blank, unstyled, watermarked, failing CORS or export, showing no data or ignoring paging. Not for Power BI, Tableau, Metabase, Grafana, Chart.js or other BI/charting products."
+description: "Helps developers embed Reveal SDK (Reveal BI, revealbi.io) dashboards in their own applications. Use for Reveal setup, integration, configuration, security or deployment: ASP.NET Core, Node.js/Express or Java/Spring Boot/Tomcat servers; HTML/JavaScript, Angular, React, Vue or web-component clients; data sources, server-side credentials, user context, row-level security, multi-tenancy, loading, saving and creating dashboards through the app or the Reveal editor, theming, export, licensing and production; and troubleshooting a RevealView that is blank, unstyled, watermarked, failing CORS or export, showing no data or ignoring paging. Not for generating or editing .rdash files in code with the Reveal DOM (use reveal-dashboard-authoring). Not for Power BI, Tableau, Metabase, Grafana, Chart.js or other BI/charting products."
 ---
 
 # Embedding Reveal in an application
@@ -46,6 +46,7 @@ If there is no `.rdash` yet, set `revealView.dashboard = new RVDashboard()` to o
 | Connect their database or API, keep connection details off the client | [data-sources.md](references/data-sources.md) |
 | Pass the signed-in user, tenant or role to the server; row-level security; credentials per user | [user-context-security.md](references/user-context-security.md) |
 | Store dashboards somewhere other than a folder (database, blob storage, per-user), Save / Save As, create new, editing permissions | [dashboards.md](references/dashboards.md) |
+| Generate, modify or bulk-edit `.rdash` files in code (templates, per-tenant dashboards, dashboards built from a spec or AI output, migrations) | The `reveal-dashboard-authoring` skill (Reveal DOM: `@revealbi/dom`, `Reveal.Sdk.Dom`); summary in [dashboards.md](references/dashboards.md#creating-and-changing-dashboards-in-code) |
 | Match their look: themes, fonts, which menus and buttons show | [client.md](references/client.md) |
 | License, export (PDF/Image/PowerPoint), size limits, caching, logging, CORS and hosting for production | [production.md](references/production.md) |
 

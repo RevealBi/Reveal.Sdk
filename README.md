@@ -21,14 +21,18 @@ _This repository does not contain the actual source code of the Reveal SDK._
 
 ## AI Agent Skills
 
-The [`skills/`](skills) folder has [Agent Skills](https://agentskills.io) that teach AI coding assistants (Claude Code, GitHub Copilot, Cursor and others) to build with the Reveal SDK. [`reveal-embed`](skills/reveal-embed/SKILL.md) helps you embed Reveal dashboards in your app: server setup, client, data sources, user context, theming, export and production.
+The [`skills/`](skills) folder has [Agent Skills](https://agentskills.io) that teach AI coding assistants (Claude Code, GitHub Copilot, Cursor and others) to build with the Reveal SDK. [`reveal-embed`](skills/reveal-embed/SKILL.md) helps you embed Reveal dashboards in your app: server setup, client, data sources, user context, theming, export and production. [`reveal-dashboard-authoring`](skills/reveal-dashboard-authoring/SKILL.md) creates, edits, inspects and deletes `.rdash` dashboards in code with the Reveal DOM ([`@revealbi/dom`](https://github.com/RevealBi/revealbi-dom) for TypeScript, [`Reveal.Sdk.Dom`](https://github.com/RevealBi/Reveal.Sdk.Dom) for .NET). It ships runnable workspaces and a local preview server, so the agent can write code against the installed types, run it, and check that the dashboard renders.
 
 ```bash
 gh skill install RevealBi/Reveal.Sdk reveal-embed                      # GitHub CLI 2.90+
 npx skills add RevealBi/Reveal.Sdk --skill reveal-embed                 # skills CLI
+gh skill install RevealBi/Reveal.Sdk reveal-dashboard-authoring
+npx skills add RevealBi/Reveal.Sdk --skill reveal-dashboard-authoring
 ```
 
 In Claude Code you can also run `/plugin marketplace add RevealBi/Reveal.Sdk`, then `/plugin install reveal-sdk@reveal-sdk`.
+
+To install by hand, copy the skill folders into your project. `.claude/skills/<name>/` is read by Claude Code, GitHub Copilot (VS Code and CLI) and Cursor alike. Copilot also reads `.github/skills/`, and Copilot and Cursor read `.agents/skills/`. Commit the folder so everyone on the project gets the skills.
 
 ## Issue Workflow
 

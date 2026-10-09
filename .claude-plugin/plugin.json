@@ -1,6 +1,6 @@
 {
   "name": "reveal-sdk",
-  "description": "Skills for building with the Reveal SDK: embedding Reveal dashboards in your application, connecting data, securing per-user data, and going to production.",
+  "description": "Skills for building with the Reveal SDK: embedding Reveal dashboards in your application, connecting data, securing per-user data, going to production, and creating, editing and inspecting .rdash dashboards in code with the Reveal DOM.",
   "version": "0.1.0",
   "author": {
     "name": "Reveal BI"
