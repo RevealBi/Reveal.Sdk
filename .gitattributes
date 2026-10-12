@@ -1,0 +1,3 @@
+# Keep the Maven wrapper script runnable after a Windows checkout with core.autocrlf=true.
+skills/reveal-embed/assets/java-minimal/mvnw text eol=lf
+skills/reveal-embed/assets/java-minimal/*.cmd text eol=crlf
