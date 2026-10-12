@@ -34,7 +34,7 @@ Each of these looks like an SDK defect and is a setup cause. Match the symptom, 
 
 **Odd layout shifts or a visible element at the bottom of the page.** RevealView adds a hidden `<pre class="rv-multiline-editor">` to the page for text measurement (in 2.2.1 inside `div#DialogTextBox`, not directly under `body`), and a global `pre` style is hitting it. Add `pre.rv-multiline-editor { height: 0 !important; }` (no `body >`: that selector does not match in 2.2.1).
 
-**Tab key cannot leave the dashboard (focus trapped in `RevealView`).** Known issue since 2.0, RevealBi/Reveal.Sdk#692; no documented workaround. Point the customer to the issue rather than diagnosing their setup.
+**Tab key cannot leave the dashboard (focus trapped in `RevealView`).** No supported workaround is documented, so do not invent one (key handlers, `tabindex` changes). Confirm the symptom on the installed version, tell the customer how focus behaves, and do not spend time diagnosing their setup for it.
 
 ## License
 

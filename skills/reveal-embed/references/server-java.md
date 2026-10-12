@@ -252,6 +252,7 @@ public class DataSourceProvider implements IRVDataSourceProvider {
     private static final String BLOCKED_URL = "https://blocked.invalid/";   // .invalid never resolves
     private static final String BLOCKED_HOST = "blocked.invalid";
     private static final String BLOCKED_FILE = "local:/blocked-by-server";
+    private static final String NO_ROWS = "SELECT 1 AS id WHERE 1 = 0";   // adjust the columns to what the dashboards bind
 
     @Override
     public RVDashboardDataSource changeDataSource(IRVUserContext userContext, RVDashboardDataSource ds) {
@@ -271,7 +272,14 @@ public class DataSourceProvider implements IRVDataSourceProvider {
     @Override
     public RVDataSourceItem changeDataSourceItem(IRVUserContext userContext, String dashboardId, RVDataSourceItem item) {
         changeDataSource(userContext, item.getDataSource());   // the item carries its own copy
-        if (item instanceof RVRESTDataSourceItem rest) rest.setUrl(BLOCKED_URL);
+        if (item instanceof RVPostgresDataSourceItem pg) {      // the type this app uses
+            // The client names the table, schema, procedure and query: replace all of them with
+            // server-controlled values keyed by the item id, and give unknown ids no rows.
+            pg.setSchema(null); pg.setProcedure(null); pg.setFunctionName(null);
+            if ("Orders".equals(pg.getId())) { pg.setTable("orders"); pg.setCustomQuery(null); }
+            else { pg.setTable(null); pg.setCustomQuery(NO_ROWS); }
+        }
+        else if (item instanceof RVRESTDataSourceItem rest) rest.setUrl(BLOCKED_URL);
         else if (item instanceof RVWebResourceDataSourceItem web) web.setUrl(BLOCKED_URL);
         else if (item instanceof RVODataDataSourceItem odata) odata.setUrl(BLOCKED_URL);
         else if (item instanceof RVLocalFileDataSourceItem local) local.setUri(BLOCKED_FILE);

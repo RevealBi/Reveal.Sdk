@@ -67,7 +67,7 @@ Java: build it in the `RevealEngineServlet` user context lambda from `request.ge
 
 ### A null user context
 
-The other providers can receive a `null` user context (the Node typings declare `IRVUserContext | null`). It has been reported for the authentication provider's second call during the editor's connection verification (RevealBi/Reveal.Sdk#621, on 1.8.2, since fixed), and the SDK's default system user context calls the user context provider with no request (latent: no caller found in 2.2.1; the starters throw there). Never dereference it unchecked:
+Providers can receive a `null` user context (the Node typings declare `IRVUserContext | null`), for example on connection verification calls, and the user context provider can be called without a request. Handle it explicitly and never dereference it unchecked:
 
 - **Authentication provider:** decide from the data source (your host and database), not from the user, so a null context still gets the credential for your own server. If the credential genuinely depends on the user, return `null` (no credential) for a null context; never fall back to a shared privileged login.
 - **Data source, item and dashboard providers:** fail closed. The starters' dashboard providers throw when there is no user id, so a null context can never resolve to a shared folder.

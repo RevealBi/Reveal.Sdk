@@ -21,7 +21,7 @@ If a NuGet install still shows the watermark after licensing, clear the Reveal p
 
 How export works matters for hosting:
 
-- **Excel, CSV, PDF and image** exports all **POST to the server** (Excel/CSV: the data; PDF/image: the rendered page HTML to `/tools/renderhtml`, plus the data for PDF). Large widgets exceed the host's request body limit (Kestrel's default is 30 MB: a 31.9 MB Excel export POST failed in testing). The UI shows only "Export failed" (the browser sees `ERR_CONNECTION_RESET`); the cause (`Request body too large. The max request body size is 30000000 bytes.`) appears only in the server log. Raise the limit on every hop: Kestrel `MaxRequestBodySize`, IIS `maxAllowedContentLength`, nginx `client_max_body_size` (default 1 MB), Azure Front Door / Application Gateway or any other gateway. On Node the engine may enforce the same 30 MB limit itself, and `RevealOptions` may not expose a setting for it (issue RevealBi/Reveal.Sdk#703; not tested here).
+- **Excel, CSV, PDF and image** exports all **POST to the server** (Excel/CSV: the data; PDF/image: the rendered page HTML to `/tools/renderhtml`, plus the data for PDF). Large widgets exceed the host's request body limit (Kestrel's default is 30 MB: a 31.9 MB Excel export POST failed in testing). The UI shows only "Export failed" (the browser sees `ERR_CONNECTION_RESET`); the cause (`Request body too large. The max request body size is 30000000 bytes.`) appears only in the server log. Raise the limit on every hop: Kestrel `MaxRequestBodySize`, IIS `maxAllowedContentLength`, nginx `client_max_body_size` (default 1 MB), Azure Front Door / Application Gateway or any other gateway. On Node the engine may enforce the same 30 MB limit itself, and `RevealOptions` may not expose a setting for it.
   ```cs
   builder.WebHost.ConfigureKestrel(o => o.Limits.MaxRequestBodySize = 256L * 1024 * 1024);
   ```
@@ -55,7 +55,7 @@ Client: `RevealSdkSettings.maxCellsRestriction` (default 100,000 cells per visua
 
 - Results are cached on disk per server; default refresh is once a day per data source. Users can change it, or pick "Always".
 - With several server instances behind a load balancer, use the Redis cache (docs: `caching`) or sticky sessions, so instances do not each build their own cache. ASP.NET: package `Reveal.Sdk.Cache.Redis`, `AddRedisCache(o => o.ConnectionString = ...)`; Node: the `redisOptions` option; Java 2.x: `RevealServerBuilder.addRedisCache(o -> o.setConnectionString(...))` (the docs' `enableRedisCache` sample is 1.x).
-- The documented Redis options cover connection, TLS, timeouts and retries (`ConnectionString`, `EndPoints`, `User`, `Password`, `UseSsl`, `DefaultDatabase`, `ClientName`, timeouts, `ConnectRetry`, `KeepAliveSeconds`, `AbortOnConnectFail`, `AllowAdmin`, `ReconnectRetryPolicy`, `RetryDelayMs`). There is **no key prefix option** (requested in RevealBi/Reveal.Sdk#625). To keep Reveal's keys apart from other apps, give it its own `DefaultDatabase` (not available on Redis Cluster) or its own Redis instance.
+- The documented Redis options cover connection, TLS, timeouts and retries (`ConnectionString`, `EndPoints`, `User`, `Password`, `UseSsl`, `DefaultDatabase`, `ClientName`, timeouts, `ConnectRetry`, `KeepAliveSeconds`, `AbortOnConnectFail`, `AllowAdmin`, `ReconnectRetryPolicy`, `RetryDelayMs`). There is **no key prefix option**. To keep Reveal's keys apart from other apps, give it its own `DefaultDatabase` (not available on Redis Cluster) or its own Redis instance.
 - Make the cache folder writable by the app's account.
 
 ## Logging

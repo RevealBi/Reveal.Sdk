@@ -202,7 +202,7 @@ This relies on `userContextProvider` rejecting a missing or blank user id, so no
 - Headless (server-side) export in the Node SDK is not available on Linux or macOS.
 - On Linux ARM64, Chromium is not installed automatically for export. Install it with the package manager; Reveal looks for `/usr/bin/chromium`.
 - Global filters are not supported in Node headless export.
-- Large export POSTs: the engine may enforce a 30 MB request body limit of its own that `RevealOptions` does not expose (issue RevealBi/Reveal.Sdk#703; not tested here). See production.md.
+- Large export POSTs: the engine may enforce a 30 MB request body limit of its own that `RevealOptions` does not expose. See production.md.
 - Intermittent request timeouts have been seen on developer machines, often caused by OS or antivirus firewalls. Retry before deep debugging.
 
 Starting point: [assets/node-minimal](../assets/node-minimal).

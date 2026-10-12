@@ -139,7 +139,7 @@ Common `RevealView` properties (full list: docs topic `editing-dashboards`):
 | Restrict editing features | `canAddVisualization`, `canAddCalculatedFields`, `canAddDashboardFilter`, `showChangeDataSource`, `showEditDataSource` |
 | Tooltips | `showTooltips` |
 
-Exception to "properties before `dashboard`": setting `canAddDashboardFilter` or `canAddDateFilter` before a dashboard is assigned throws `_globalFiltersGrid` is null in 2.x; set them after `revealView.dashboard = ...` (issue #672, not retested here).
+Exception to "properties before `dashboard`": setting `canAddDashboardFilter` or `canAddDateFilter` before a dashboard is assigned can fail with `_globalFiltersGrid` is null; set them after `revealView.dashboard = ...`.
 
 Events for integrating with the host app: `onDataSourcesRequested` (data sources offered in the editor), `onSave`, `onVisualizationEditorOpening/Opened/Closing/Closed`, click events (`onVisualizationDataPointClicked`), custom menu items, and linking/navigation. Dashboard filters can be read and set from code: `revealView.dashboard.filters.getByTitle("Region").selectedValues = ["Europe"]`. See docs topics `click-events`, `custom-menu-items`, `filtering-dashboards`, `linking-dashboards`.
 
