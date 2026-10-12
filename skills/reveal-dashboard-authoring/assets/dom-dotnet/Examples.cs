@@ -104,11 +104,11 @@ public static class Examples
         return document;
     }
 
-    /// <summary>Validates bound fields, then writes the .rdash file.</summary>
+    /// <summary>Validates bound fields, then writes the .rdash file (through a temporary file, so
+    /// writing over an existing file is safe; document.Save over a larger file corrupts it).</summary>
     public static void Save(RdashDocument document, string path)
     {
         Guard.AssertBoundFieldsExist(document.ToJsonString());
-        Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(path))!);
-        document.Save(path);
+        Workspace.WriteRdash(document, path);
     }
 }

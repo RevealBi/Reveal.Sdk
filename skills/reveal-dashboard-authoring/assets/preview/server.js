@@ -5,11 +5,17 @@
 //     http://localhost:5112/                               lists the dashboards
 //     http://localhost:5112/?dashboard=<id>                opens <folder>/<id>.rdash
 //
-// Data: REST/JSON items whose id is in SAMPLE_DATA are pointed at the files in
-// ./sample-data; every other URL, host or file a dashboard names is blocked. Widgets bound
-// to a real database therefore show a connection or authentication error here; check
-// those in the app itself. License: ~/.revealbi-sdk/license.key or REVEAL_LICENSE
-// (without one the views carry a trial watermark).
+// Data is default-deny. Only two things are let through:
+//   - REST/JSON items whose id is in SAMPLE_DATA, pointed at the files in ./sample-data;
+//   - web-resource fetches of this server's own /sample-data/ URLs (Image widgets fetch each
+//     image URL through the item provider with a generated id, so they are allowed by URL).
+// Every other item and data source, of any type, has its location rewritten to an
+// unresolvable value before the engine sees it: REST/web/OData URLs, local files, database
+// hosts, and the database file of SQLite/DuckDB. The preview never opens a host or file a
+// dashboard names, so treat its output for database widgets as "not checked": they show an
+// authentication or "cannot open" error here; check them in the app itself.
+// License: ~/.revealbi-sdk/license.key or REVEAL_LICENSE (without one the views carry a
+// trial watermark).
 
 const fs = require("fs");
 const path = require("path");
@@ -21,10 +27,40 @@ const DASHBOARDS_DIR = path.resolve(process.argv[2] || path.join(__dirname, ".."
 const VALID_ID = /^[A-Za-z0-9_-]{1,100}$/;
 const BLOCKED_URL = "https://blocked.invalid/";
 const BLOCKED_FILE = "local:/blocked-by-preview";
+const BLOCKED_HOST = "blocked.invalid";
+// A file in a folder that does not exist: SQLite and DuckDB cannot open or create it.
+const BLOCKED_DB = path.join(__dirname, "blocked-by-preview", "does-not-exist", "blocked.db");
 
 // Item id -> file in ./sample-data. Generated dashboards set these ids explicitly.
 const SAMPLE_DATA = { sales: "sales.json" };
-const sampleUrl = (file) => `http://127.0.0.1:${PORT}/sample-data/${file}`;
+const SAMPLE_PREFIX = `http://127.0.0.1:${PORT}/sample-data/`;
+const sampleUrl = (file) => `${SAMPLE_PREFIX}${file}`;
+
+// Returns the normalized URL when it points into this server's own /sample-data/ folder,
+// otherwise null. new URL() resolves "..", "%2e%2e" and backslashes before the prefix test.
+const ownSampleUrl = (value) => {
+    let u;
+    try { u = new URL(String(value ?? "")); } catch { return null; }
+    const local = u.hostname === "127.0.0.1" || u.hostname === "localhost";
+    if (u.protocol !== "http:" || !local || u.port !== String(PORT) || u.username || u.password) return null;
+    if (!u.pathname.startsWith("/sample-data/")) return null;
+    return `${SAMPLE_PREFIX}${u.pathname.slice("/sample-data/".length)}`;
+};
+
+// Every location-bearing property the Node SDK model exposes, and what to overwrite it with.
+// Setting a property the object does not have is skipped, so this is safe on any type.
+const LOCATION_PROPS = {
+    url: BLOCKED_URL, serverUrl: BLOCKED_URL, siteUrl: BLOCKED_URL, webUrl: BLOCKED_URL,
+    listUrl: BLOCKED_URL, listItemUrl: BLOCKED_URL, httpPath: BLOCKED_URL, outputLocation: BLOCKED_URL,
+    uri: BLOCKED_FILE, path: BLOCKED_FILE, folderRelativePath: BLOCKED_FILE,
+    host: BLOCKED_HOST, database: BLOCKED_DB,
+};
+const neutralize = (obj) => {
+    if (!obj || typeof obj !== "object") return;
+    for (const [prop, blocked] of Object.entries(LOCATION_PROPS)) {
+        if (prop in obj) obj[prop] = blocked;
+    }
+};
 
 const app = express();
 app.use("/sample-data", express.static(path.join(__dirname, "sample-data")));
@@ -37,29 +73,33 @@ app.get("/api/info", (req, res) => {
     res.json({ dashboardsDir: DASHBOARDS_DIR, dashboards: ids, sdkVersion: require("reveal-sdk-node/package.json").version });
 });
 
+// Data sources: keep only this server's own sample URLs; neutralize everything else.
 const dataSourceProvider = async (userContext, dataSource) => {
-    if (dataSource instanceof reveal.RVRESTDataSource
-        || dataSource instanceof reveal.RVWebResourceDataSource
-        || dataSource instanceof reveal.RVODataDataSource) {
-        dataSource.url = BLOCKED_URL;
-    }
+    const own = (dataSource instanceof reveal.RVRESTDataSource || dataSource instanceof reveal.RVWebResourceDataSource)
+        ? ownSampleUrl(dataSource.url) : null;
+    if (own) dataSource.url = own;
+    else neutralize(dataSource);
     return dataSource;
 };
 
 const dataSourceItemProvider = async (userContext, item) => {
-    if (item.dataSource) await dataSourceProvider(userContext, item.dataSource);
-    if (item instanceof reveal.RVRESTDataSourceItem || item instanceof reveal.RVWebResourceDataSourceItem) {
-        const file = SAMPLE_DATA[item.id];
-        item.url = file ? sampleUrl(file) : BLOCKED_URL;
-        if (file && item.dataSource) item.dataSource.url = item.url;
-    } else if (item instanceof reveal.RVODataDataSourceItem) {
-        item.url = BLOCKED_URL;
-    } else if (item instanceof reveal.RVLocalFileDataSourceItem) {
-        item.uri = BLOCKED_FILE;
-    } else if (item instanceof reveal.RVResourceBasedDataSourceItem && item.resourceItem) {
+    if (item instanceof reveal.RVResourceBasedDataSourceItem && item.resourceItem) {
         // JSON, CSV and Excel items wrap the REST/web/file item that holds the location.
+        if (item.dataSource) await dataSourceProvider(userContext, item.dataSource);
         await dataSourceItemProvider(userContext, item.resourceItem);
+        return item;
     }
+    if (item instanceof reveal.RVRESTDataSourceItem || item instanceof reveal.RVWebResourceDataSourceItem) {
+        const own = SAMPLE_DATA[item.id] ? sampleUrl(SAMPLE_DATA[item.id]) : ownSampleUrl(item.url);
+        if (own) {
+            item.url = own;
+            if (item.dataSource) item.dataSource.url = own;
+            return item;
+        }
+    }
+    // Default deny: any other item, of any type, keeps its shape but loses its location.
+    neutralize(item);
+    neutralize(item.dataSource);
     return item;
 };
 
@@ -80,7 +120,11 @@ const revealOptions = {
 const license = process.env.REVEAL_LICENSE?.trim();
 if (license) revealOptions.license = license;
 
-app.use("/", reveal(revealOptions));
+// Exported for the offline provider test (test-providers.js); `node server.js` starts the server.
+module.exports = { dataSourceProvider, dataSourceItemProvider, ownSampleUrl, BLOCKED_DB };
 
-app.listen(PORT, "127.0.0.1", () =>
-    console.log(`Preview on http://localhost:${PORT}/  (dashboards: ${DASHBOARDS_DIR})`));
+if (require.main === module) {
+    app.use("/", reveal(revealOptions));
+    app.listen(PORT, "127.0.0.1", () =>
+        console.log(`Preview on http://localhost:${PORT}/  (dashboards: ${DASHBOARDS_DIR})`));
+}

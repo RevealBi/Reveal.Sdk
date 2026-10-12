@@ -4,7 +4,8 @@
   "description": "Local, read-only Reveal server and headless check for generated .rdash files.",
   "scripts": {
     "start": "node server.js",
-    "check": "node check.mjs"
+    "check": "node check.mjs",
+    "test": "node test-providers.js"
   },
   "dependencies": {
     "express": "^4.21.0",

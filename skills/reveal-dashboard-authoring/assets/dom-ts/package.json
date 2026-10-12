@@ -11,6 +11,9 @@
     "inspect": "tsx src/tools/inspect.ts",
     "api": "tsx src/tools/api.ts",
     "losscheck": "tsx src/tools/losscheck.ts",
+    "guard": "tsx src/tools/guard.ts",
+    "migrate": "tsx src/tools/migrate.ts",
+    "spec": "tsx src/examples/spec-generator.ts",
     "test": "tsc --noEmit && tsx test/run-all.ts"
   },
   "dependencies": {

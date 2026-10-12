@@ -1,6 +1,6 @@
 # Reveal server on Node.js
 
-Requires Node.js 16.3 or later. Reveal is Express middleware. Sources: https://help.revealbi.io/web/getting-started-server-node, `getting-started-server-node-typescript`, `getting-started-server-nest`.
+Requires Node.js 16.13 or later (the package's `engines`); export needs Node 18 or later. Reveal is Express middleware. Sources: https://help.revealbi.io/web/getting-started-server-node/, `getting-started-server-node-typescript`, `getting-started-server-nest`.
 
 ## Install and register
 
@@ -20,7 +20,8 @@ const app = express();
 // Only when the client is on another origin; never allow every origin.
 // This form supports bearer-token (Authorization header) auth. For cross-origin cookie auth also pass
 // `credentials: true` (never with a wildcard origin) and make the client send cookies; same-origin hosting avoids both.
-if (process.env.CLIENT_ORIGIN) app.use(cors({ origin: process.env.CLIENT_ORIGIN }));
+// A comma-separated CLIENT_ORIGIN must be split: cors() echoes a string verbatim, so "a,b" blocks both.
+if (process.env.CLIENT_ORIGIN) app.use(cors({ origin: process.env.CLIENT_ORIGIN.split(",").map((o) => o.trim()) }));
 
 const revealOptions = {
     // license: see below; omit it to use ~/.revealbi-sdk/license.key
@@ -28,9 +29,11 @@ const revealOptions = {
     dataSourceProvider,                           // async (userContext, dataSource) => dataSource
     dataSourceItemProvider,                       // async (userContext, dataSourceItem) => dataSourceItem
     authenticationProvider,                       // async (userContext, dataSource) => credential | null
-    // dashboardProvider,                         // async (userContext, dashboardId) => Readable | null
-    // dashboardStorageProvider,                  // async (userContext, dashboardId, stream) => void (saving)
+    dashboardProvider,                            // async (userContext, dashboardId) => Readable | null
+    dashboardStorageProvider,                     // async (userContext, dashboardId, stream) => void (saving)
 };
+// Always supply both dashboard options (see Dashboards below), so loading and saving go
+// through the same validated, authorized path.
 
 // Only pass a key that is actually set. An empty or whitespace value ("REVEAL_LICENSE=" in .env)
 // is passed through as an invalid key: the engine fails to start instead of falling back to the key file.
@@ -59,7 +62,7 @@ import cors from "cors";
 import reveal, { RevealOptions } from "reveal-sdk-node";
 
 const app: Application = express();
-if (process.env.CLIENT_ORIGIN) app.use(cors({ origin: process.env.CLIENT_ORIGIN })); // + credentials: true for cookie auth
+if (process.env.CLIENT_ORIGIN) app.use(cors({ origin: process.env.CLIENT_ORIGIN.split(",").map((o) => o.trim()) })); // + credentials: true for cookie auth
 
 const revealOptions: RevealOptions = { /* same keys as above */ };
 // requireAuth as defined above, after the app's authentication middleware.
@@ -67,7 +70,7 @@ app.use("/", requireAuth, reveal(revealOptions));
 app.listen(5111);
 ```
 
-**TypeScript or JavaScript as ES modules** (`"type": "module"`, or `"module": "NodeNext"`/`"Node16"`): the import above does not work. `reveal-sdk-node` is CommonJS: `module.exports` is the `create` function, and the SDK classes are assigned onto it. In ESM, named imports of classes (`import { RVUserContext } from "reveal-sdk-node"`) are `undefined` at runtime, and under NodeNext `tsc` reports `This expression is not callable` for the default import. Take everything from the default import (verified on 2.2.1):
+**TypeScript or JavaScript as ES modules** (`"type": "module"`, or `"module": "NodeNext"`/`"Node16"`): the import above does not work. `reveal-sdk-node` is CommonJS: `module.exports` is the `create` function, and the SDK classes are assigned onto it. In ESM, a named import of a class (`import { RVUserContext } from "reveal-sdk-node"`) compiles, but Node refuses to start the app: `SyntaxError: Named export 'RVUserContext' not found. The requested module 'reveal-sdk-node' is a CommonJS module` (verified on 2.2.1, Node 22). Also, under NodeNext `tsc` reports `This expression is not callable` for the default import. Take everything from the default import (verified on 2.2.1):
 
 ```ts
 import revealSdk, { type IRVUserContext, type RevealOptions } from "reveal-sdk-node";
@@ -81,7 +84,22 @@ app.use("/reveal-api", requireAuth, createReveal(revealOptions));
 
 Type-only imports (`type RevealOptions`, `type IRVUserContext`) are fine as named imports. Check `"type"` in `package.json` and `"module"` in `tsconfig.json` before writing the import.
 
-On Node, the providers are **functions passed as options**, not classes. The data source provider is split into two options, `dataSourceProvider` and `dataSourceItemProvider`; `dataSourceItemProvider` receives `(userContext, item)` only, with no dashboard id (unlike ASP.NET).
+Strict TypeScript needs a few things the JavaScript samples skip:
+
+```ts
+// request is a Node IncomingMessage; tell TS what your auth middleware added.
+userContextProvider: (request) => {
+    const user = (request as IncomingMessage & { user?: { id: string; tenantId: string } }).user;
+    if (!user?.id?.trim()) throw new Error("Unauthenticated request");
+    return new RVUserContext(user.id, new Map<string, Object>([["TenantId", user.tenantId]]));
+},
+// Providers receive IRVUserContext | null, and item.table is string | null:
+const query = item.table ? TENANT_QUERIES[item.table] : undefined;
+// ESM has no __dirname:
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+```
+
+On Node, the providers are **functions passed as options**, not classes. The data source provider is split into two options, `dataSourceProvider` and `dataSourceItemProvider`; `dataSourceItemProvider` receives `(userContext, item)` only, with no dashboard id (unlike ASP.NET). Items and data sources arrive from the client, so `dataSourceItemProvider` must neutralize every connector type the app has not mapped (overwrite its url, host, path, file and database locations and give it a query that returns no rows); never return `null` or throw (on Node both run the item as the client sent it). See data-sources.md and the default-deny providers in [assets/node-minimal](../assets/node-minimal).
 
 ## Mount path
 
@@ -95,7 +113,21 @@ app.use("/reveal-api", requireAuth, createReveal(revealOptions)); // before expr
 app.use(express.json());
 ```
 
-**Do not also set the `basePath` option when mounting with an Express prefix.** Express already strips the prefix. With both set, `loadDashboard` fails with `400 Bad Request` on `/reveal-api/DashboardFile/<id>` (verified on 2.2.1); depending on how the page handles the rejected promise, the user sees an error or an empty "New Dashboard". `basePath` is for hosting `reveal()` as a plain request listener that sees the full URL.
+**Do not also set the `basePath` option when mounting with an Express prefix.** Express already strips the prefix. With both set, `loadDashboard` fails with `400 Bad Request` on `/reveal-api/DashboardFile/<id>` (verified on 2.2.1); depending on how the page handles the rejected promise, the user sees an error or an empty "New Dashboard". `basePath` is for hosting `reveal()` as a plain request listener that sees the full URL (and for NestJS module middleware, see below). Write it **without a leading slash** (`"reveal-api"`): on 2.2.1 `"/reveal-api"` strips one character too many and every request is 404, although the typings' example shows the slash.
+
+### NestJS
+
+Mount Reveal with `app.use` in `main.ts`, before `app.listen()`:
+
+```ts
+const app = await NestFactory.create<NestExpressApplication>(AppModule);
+app.use("/reveal-api", authenticate, requireAuth, reveal(revealOptions)); // before listen()/init()
+await app.listen(port);
+```
+
+- Nest adds its JSON and urlencoded parsers during `init()`, so a mount before that runs ahead of them (verified on Nest 10.4, Reveal 2.2.1). Calling `await app.init()` before `app.use` (hybrid apps, supertest setups) makes every Reveal URL 404.
+- **Nest guards (`@UseGuards`, a global `APP_GUARD`) do not run for `app.use` middleware.** Keep the app's authentication and a `requireAuth` middleware in the chain; otherwise only a throwing `userContextProvider` stops anonymous callers (with a 500, not a 401).
+- As module middleware (`consumer.apply(...).forRoutes({ path: "reveal-api/*", method: RequestMethod.ALL })`), Nest does not strip the prefix: set `basePath: "reveal-api"` (no leading slash), and create the app with `NestFactory.create(AppModule, { bodyParser: false })`, re-adding `express.json()` / `express.urlencoded()` only on the app's routes (`app.use("/api", express.json())`). Otherwise every widget fails with 500 (the body parser trap above).
 
 ## Options
 
@@ -105,7 +137,7 @@ app.use(express.json());
 | --- | --- |
 | `localFileStoragePath` | Folder that `local:/<file>` URIs resolve against. **Set it.** Without it, 2.2.1 looks in `C:\Reveal\Files` on Windows, not the project folder. |
 | `cachePath` | Cache and download folder (default: system temp). |
-| `engineLogDir`, `engineLogLevel` | Engine log files and level (`Trace` … `None`). **This is the Node "server log".** Without `engineLogDir`, engine errors are not written anywhere you can see: the Node console stays quiet and the client gets only `Something went wrong. Correlation Id: ...`. Set it (for example `path.resolve("logs")` with `"Debug"`) before troubleshooting, then search `reveal-engine.log` for the correlation id. Use `"Warning"` or higher in production. |
+| `engineLogDir`, `engineLogLevel` | Engine log files and level (`Trace` … `None`). **This is the Node "server log".** Without `engineLogDir`, 2.2.1 writes the engine log to `revealbi-logs/reveal-engine.log` under the OS temp folder (`%TEMP%` on Windows); the Node console stays quiet and the client gets only `Something went wrong. Correlation Id: ...`. Set it (for example `path.resolve("logs")` with `"Debug"`) before troubleshooting, then search `reveal-engine.log` for the correlation id. Use `"Warning"` or higher in production. |
 | `dataSourceItemFilter` | Node's equivalent of `IRVObjectFilter`: `async (userContext, item) => boolean`. |
 | `dataModelProvider` | Beta data model provider. |
 | `newLocalProcessingEnabled` | Server-side engine for Excel/CSV; needed for grid paging over files. |
@@ -115,7 +147,7 @@ app.use(express.json());
 
 ## Dashboards
 
-By default dashboards load from a `dashboards` folder (lower case) in the **working directory** of the process, so start the server from the project root. **Do not rely on the built-in loader and saver in a real app:** on 2.2.1 they join the client's dashboard id into the path unchecked (`GET /DashboardFile/..%5c..%5cname` read `name.rdash` from outside the folder). Supply a `dashboardProvider` and a `dashboardStorageProvider` that validate the id **and decide who may read or write which dashboard** ([assets/node-minimal](../assets/node-minimal) does both: shared dashboards are read-only, each user saves into their own folder):
+By default dashboards load from a `dashboards` folder (lower case) in the **working directory** of the process, so start the server from the project root. **Treat the built-in loader and saver as demo defaults; do not rely on them in a real app.** Supply **both** a `dashboardProvider` and a `dashboardStorageProvider` that validate the id (letters, digits, dash, underscore) **and decide who may read or write which dashboard** ([assets/node-minimal](../assets/node-minimal) does both: shared dashboards are read-only, each user saves into their own folder):
 
 ```js
 const crypto = require("crypto");
@@ -129,7 +161,14 @@ const DASHBOARDS_DIR = path.join(process.cwd(), "dashboards");
 const VALID_ID = /^[A-Za-z0-9_-]{1,100}$/;   // dashboardId comes from the client
 
 const userFolder = (userContext) =>
-    path.join(DASHBOARDS_DIR, "users", crypto.createHash("sha256").update(String(userContext.userId)).digest("hex"));
+    path.join(DASHBOARDS_DIR, "users", crypto.createHash("sha256").update(requireUserId(userContext)).digest("hex"));
+
+// Fail closed: the user context can be null (see user-context-security.md); never fold it into a shared folder.
+const requireUserId = (userContext) => {
+    const id = userContext?.userId;
+    if (id == null || String(id).trim() === "") throw new Error("No user");
+    return String(id);
+};
 
 const dashboardProvider = async (userContext, dashboardId) => {
     if (!VALID_ID.test(dashboardId)) return null;
@@ -163,6 +202,7 @@ This relies on `userContextProvider` rejecting a missing or blank user id, so no
 - Headless (server-side) export in the Node SDK is not available on Linux or macOS.
 - On Linux ARM64, Chromium is not installed automatically for export. Install it with the package manager; Reveal looks for `/usr/bin/chromium`.
 - Global filters are not supported in Node headless export.
+- Large export POSTs: the engine may enforce a 30 MB request body limit of its own that `RevealOptions` does not expose. See production.md.
 - Intermittent request timeouts have been seen on developer machines, often caused by OS or antivirus firewalls. Retry before deep debugging.
 
 Starting point: [assets/node-minimal](../assets/node-minimal).

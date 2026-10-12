@@ -9,10 +9,12 @@ using Reveal.Sdk.Data.Rest;
 /// </summary>
 public class DataSourceProvider : IRVDataSourceProvider
 {
-    // The core connectors (REST, web resource, OData, local files) need no registration,
-    // so a crafted request can point them at any URL or file path. Returning the item
-    // unchanged, returning null and throwing all run it as sent, so until a location is
-    // mapped to a server-controlled value it is overwritten with one that cannot resolve.
+    // Default deny. The core connectors (REST, web resource, OData, local files) need no
+    // registration, so a crafted request can point them at any URL or file path. Returning
+    // the item unchanged or returning null runs it as sent (on every platform), so until a location is mapped to
+    // a server-controlled value it is overwritten with one that cannot resolve, and every
+    // other item type is refused. On ASP.NET 2.2.1 throwing fails the widget (it does not
+    // run the item) and shows the exception message in the browser, so keep it generic.
     private const string BlockedUrl = "https://blocked.invalid/"; // .invalid never resolves (RFC 2606)
     private const string BlockedFile = "local:/blocked-by-server";
 
@@ -73,6 +75,9 @@ public class DataSourceProvider : IRVDataSourceProvider
             case RVResourceBasedDataSourceItem { ResourceItem: RVDataSourceItem resource }:
                 await ChangeDataSourceItemAsync(userContext, dashboardId, resource);
                 break;
+            case RVInMemoryDataSourceItem: break; // data defined by the server
+            // Databases and anything else not mapped above (registered connectors included).
+            default: throw new InvalidOperationException("Data source not allowed.");
         }
         return dataSourceItem;
     }

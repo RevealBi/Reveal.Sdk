@@ -1,6 +1,6 @@
 # Reveal server on ASP.NET Core
 
-Requires ASP.NET 8.0 or later. Source: https://help.revealbi.io/web/install-server-sdk and https://help.revealbi.io/web/getting-started-server
+Requires ASP.NET 8.0 or later. Source: https://help.revealbi.io/web/install-server-sdk/ and https://help.revealbi.io/web/getting-started-server/
 
 ## Install and register
 
@@ -15,6 +15,7 @@ The same package serves trial and licensed use; only the license configuration d
 ```cs
 using Microsoft.AspNetCore.Authorization;
 using Reveal.Sdk;
+using Reveal.Sdk.Data;   // RegisterXxx() connector extensions; they do not compile without it
 
 // Required: Reveal's controllers have no [Authorize], so without this they serve anonymous callers.
 // Also register the app's real authentication (AddAuthentication().AddJwtBearer(...), cookies, ...).
@@ -40,8 +41,8 @@ builder.Services.AddControllers().AddReveal(revealBuilder =>
     revealBuilder.AddDataSourceProvider<DataSourceProvider>();
     revealBuilder.AddAuthenticationProvider<AuthenticationProvider>();
     revealBuilder.AddUserContextProvider<UserContextProvider>();
+    revealBuilder.AddDashboardProvider<DashboardProvider>();  // always; see below
     // Optional:
-    // revealBuilder.AddDashboardProvider<DashboardProvider>();
     // revealBuilder.AddObjectFilter<ObjectFilterProvider>();
 });
 
@@ -51,15 +52,17 @@ app.UseAuthorization();    // enforces the fallback policy above
 app.MapControllers();
 ```
 
-Every provider registration is optional. With none, Reveal loads `.rdash` files from a `Dashboards` folder in the working directory and saves back to it.
+Provider registrations are optional for the SDK, but **always register a dashboard provider that validates the id and authorizes the user**. Without one, Reveal uses its built-in provider on a `Dashboards` folder in the working directory, which lets any caller who can reach the endpoint overwrite any dashboard; treat it as a demo default. Start from the provider in [assets/aspnet-minimal](../assets/aspnet-minimal), which validates the id and saves per user. The data source provider needs a default-deny branch too (data-sources.md): returning `null` runs the item as the client sent it; throwing fails the widget, but the exception message reaches the browser, so throw a generic one.
 
-Make sure `Dashboards/**` (and any local data files) are copied to the output and publish folders:
+Make sure the shared `Dashboards/**` (and any local data files) are copied to the output and publish folders, but not the per-user folder the dashboard provider writes at run time:
 
 ```xml
 <ItemGroup>
-  <Content Include="Dashboards\**" CopyToOutputDirectory="PreserveNewest" />
+  <Content Include="Dashboards\**" Exclude="Dashboards\users\**" CopyToOutputDirectory="PreserveNewest" />
 </ItemGroup>
 ```
+
+In production, keep saved dashboards in durable storage outside the deployment folder (a database, blob storage, or an absolute path from configuration); a redeploy that replaces the app folder otherwise deletes or overwrites what users saved. `Dashboards`, `wwwroot` and local data folders resolve against the working directory, so start the app from its folder or configure absolute paths.
 
 ## Provider interfaces
 
@@ -72,7 +75,7 @@ Make sure `Dashboards/**` (and any local data files) are copied to the output an
 | `IRVObjectFilter` | `AddObjectFilter<T>()` | Hide data sources and items from a user in the editor's data source list. |
 | `IRVDataModelProvider` (beta) | `AddDataModelProvider<T>()` | Relabel fields, add calculated fields and measures server-side. |
 
-All provider methods receive the `IRVUserContext`, so any of them can vary by user.
+All provider methods receive the `IRVUserContext`, so any of them can vary by user. It can be `null` on some calls; handle that (user-context-security.md, "A null user context").
 
 ## CORS for development
 

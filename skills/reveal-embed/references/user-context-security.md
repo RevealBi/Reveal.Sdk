@@ -1,6 +1,6 @@
 # User context, row-level security and multi-tenancy
 
-Source: https://help.revealbi.io/web/user-context. This reference adds the security guidance the customer needs on top of that topic.
+Source: https://help.revealbi.io/web/user-context/. This reference adds the security guidance the customer needs on top of that topic.
 
 ## How it fits together
 
@@ -63,7 +63,14 @@ const requireAuth = (req, res, next) => (req.user ? next() : res.sendStatus(401)
 app.use("/reveal-api", authenticate, requireAuth, reveal(revealOptions));
 ```
 
-Java: build it in the `RevealEngineServlet` user context lambda from `request.getUserPrincipal()` or the Spring Security context.
+Java: build it in the `RevealEngineServlet` user context lambda from `request.getUserPrincipal()` or the Spring Security context (see [assets/java-minimal](../assets/java-minimal)).
+
+### A null user context
+
+Providers can receive a `null` user context (the Node typings declare `IRVUserContext | null`), for example on connection verification calls, and the user context provider can be called without a request. Handle it explicitly and never dereference it unchecked:
+
+- **Authentication provider:** decide from the data source (your host and database), not from the user, so a null context still gets the credential for your own server. If the credential genuinely depends on the user, return `null` (no credential) for a null context; never fall back to a shared privileged login.
+- **Data source, item and dashboard providers:** fail closed. The starters' dashboard providers throw when there is no user id, so a null context can never resolve to a shared folder.
 
 ## Getting the token to the server
 
@@ -73,11 +80,16 @@ If the app authenticates API calls with a bearer token instead of cookies, forwa
 RevealSdkSettings.setAdditionalHeadersProvider((url) => ({
     Authorization: `Bearer ${getAccessToken()}`
 }));
+
+// If the token has to be fetched or refreshed, the provider can be async:
+RevealSdkSettings.setAdditionalHeadersProvider(async (url) => ({
+    Authorization: `Bearer ${await getAccessTokenAsync()}`
+}));
 ```
 
 The server validates the token as it does for any other API call, then the user context provider reads the validated claims.
 
-Cookie-based auth works without this when the client and server share an origin. Cross-origin cookies need a CORS policy with credentials (`AllowCredentials()` in ASP.NET, `credentials: true` in the Node `cors` options) and named origins, and the client must send cookies on its cross-origin requests. Prefer same-origin hosting or a bearer token; check the docs for the client-side option before relying on cross-origin cookies.
+Cookie-based auth works without this when the client and server share an origin. Cross-origin cookies need a CORS policy with credentials (`AllowCredentials()` in ASP.NET, `credentials: true` in the Node `cors` options) and named origins, and the client must send cookies on its cross-origin requests: set `RevealSdkSettings.requestWithCredentialsFlag = true` at startup (see client.md). Prefer same-origin hosting or a bearer token.
 
 ## What must not be trusted
 
@@ -97,16 +109,18 @@ Pick the strongest one the data source allows:
 | Database-enforced RLS | Per-user credentials in the authentication provider, or session context set by a procedure, and let the database filter | Good when the database already has RLS policies. |
 | Hide items from the list | `IRVObjectFilter` | UX only. It must be combined with one of the above. |
 
-Always replace the table or query the dashboard asked for with the server's own, by item id. If the provider only rewrites known ids, an unknown id must not fall through to an unfiltered table. Do **not** use `null` for that: returning `null` (or throwing) makes Reveal run the item as the client sent it, against the client-supplied host. Redirect it to your database with a query that returns no rows, and have the authentication provider release credentials only for your own host and database (see data-sources.md, "Rejecting an item does not stop the query").
+Always replace the table or query the dashboard asked for with the server's own, by item id. If the provider only rewrites known ids, an unknown id must not fall through to an unfiltered table. Do **not** use `null` for that: returning `null` makes Reveal run the item as the client sent it, against the client-supplied host, on every platform, and so does throwing on Node (on ASP.NET and Java throwing fails the widget, but the exception message reaches the browser, so throw a generic one). Redirect it to your database with a query that returns no rows, and have the authentication provider release credentials only for your own host and database (see data-sources.md, "Rejecting an item does not stop the query").
 
 ## Dashboards per user or tenant
 
 The dashboard provider also receives the user context. Use it to load from a per-tenant folder or table, and to refuse dashboards the user should not open. See dashboards.md.
 
+A per-tenant dashboard (or a shared template) isolates only the layout. The **data** must still be scoped on the server from the user context's tenant id, in the data source and item providers (one of the patterns above). Filters preselected in the dashboard, and the item or table it names, are user-editable in the editor and in the request, so they are not isolation.
+
 ## Checklist
 
 - [ ] Reveal endpoints require authentication like the rest of the API
-- [ ] Dashboard load and save are authorized per user or tenant, not just per authenticated session (the default providers let any signed-in user read and overwrite every dashboard)
+- [ ] Dashboard load and save are authorized per user or tenant, not just per authenticated session (the default providers let any signed-in user read and overwrite every dashboard), and the dashboard id is validated (letters, digits, dash, underscore) by your own provider; the built-in providers are demo defaults
 - [ ] User id, tenant and role are read from validated claims, not client-chosen headers
 - [ ] Every data path is restricted server-side (database, parameterized query, procedure or DB RLS), not only by `IRVObjectFilter`
 - [ ] No string concatenation of user values into SQL

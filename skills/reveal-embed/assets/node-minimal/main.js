@@ -24,9 +24,10 @@ const anonymousDemo = process.argv.includes("--anonymous-demo");
 const app = express();
 
 // Only needed when the front end is served from another origin. Opt in by setting
-// CLIENT_ORIGIN (e.g. https://app.example.com); never allow every origin.
+// CLIENT_ORIGIN (e.g. https://app.example.com, or a comma-separated list); never allow
+// every origin.
 if (process.env.CLIENT_ORIGIN) {
-    app.use(cors({ origin: process.env.CLIENT_ORIGIN }));
+    app.use(cors({ origin: process.env.CLIENT_ORIGIN.split(",").map((o) => o.trim()) }));
 }
 
 app.use(express.static(path.join(__dirname, "public")));
@@ -34,6 +35,8 @@ app.use(express.static(path.join(__dirname, "public")));
 // Identity must come from the app's own auth middleware (mounted before Reveal), never
 // from a header the browser chose.
 const userContextProvider = (request) => {
+    // The SDK's default system context calls this without a request: fail closed.
+    if (!request) throw new Error("No HTTP request");
     const props = new Map();
     // props.set("TenantId", request.user?.tenantId);
     if (request.user) {
@@ -51,30 +54,38 @@ const userContextProvider = (request) => {
     return new reveal.RVUserContext("anonymous", props);
 };
 
-// The core connectors (REST, web resource, OData, local files) need no registration, so a
-// crafted request can point them at any URL or file path. Returning the item unchanged,
-// returning null and throwing all run it as sent, so until a location is mapped to a
-// server-controlled value it is overwritten with one that cannot resolve.
+// Default deny. Data sources and items arrive from the client. On Node, returning null or
+// throwing runs the item as sent (never do either). So every data source and item of every
+// connector type gets its url, host, path, file and database locations overwritten (and a
+// no-rows query) below unless a rule maps it to a server-controlled location.
 const BLOCKED_URL = "https://blocked.invalid/"; // .invalid never resolves (RFC 2606)
 const BLOCKED_FILE = "local:/blocked-by-server";
+const NO_ROWS = "SELECT 1 AS Empty WHERE 1 = 0";
+const BLOCKED = {
+    url: BLOCKED_URL, webUrl: BLOCKED_URL, siteUrl: BLOCKED_URL, serverUrl: BLOCKED_URL,
+    accountEndpoint: BLOCKED_URL, connectionString: "", host: "blocked.invalid",
+    uri: BLOCKED_FILE, path: BLOCKED_FILE, database: null, // SQLite/DuckDB: a file path
+    table: null, procedure: null, functionName: null, customQuery: NO_ROWS,
+};
+const neutralize = (obj) => {
+    for (const [field, value] of Object.entries(BLOCKED)) {
+        if (obj && field in obj) obj[field] = value;
+    }
+    if (obj && "customQueryParameters" in obj) obj.customQueryParameters = {};
+};
 
-// Database connectors: redirect the data source AND allow-list the items (both below).
-// Enabling only the redirect would run any table or custom query the client sends
-// against the app's database with the app's credentials.
+// Allow-list: map the data sources and items the app uses to values from configuration.
+// Parameterize anything taken from the user context (customQueryParameters).
 // const SQL_ITEMS = { Orders: "SELECT * FROM Orders" };   // item id -> server query
-// const NO_ROWS = "SELECT 1 AS Empty WHERE 1 = 0";
+const isMapped = (dataSource) =>
+    false; // e.g. dataSource instanceof reveal.RVSqlServerDataSource && dataSource.id === "AppDb"
 
 const dataSourceProvider = async (userContext, dataSource) => {
-    // if (dataSource instanceof reveal.RVSqlServerDataSource) {
-    //     dataSource.host = process.env.SQL_HOST;
-    //     dataSource.database = process.env.SQL_DATABASE;
-    // }
-
-    // Replace with URLs from configuration for the endpoints the app uses.
-    if (dataSource instanceof reveal.RVRESTDataSource
-        || dataSource instanceof reveal.RVWebResourceDataSource
-        || dataSource instanceof reveal.RVODataDataSource) {
-        dataSource.url = BLOCKED_URL;
+    if (isMapped(dataSource)) {
+        // dataSource.host = process.env.SQL_HOST;
+        // dataSource.database = process.env.SQL_DATABASE;
+    } else if (!(dataSource instanceof reveal.RVInMemoryDataSource)) {
+        neutralize(dataSource);
     }
     return dataSource;
 };
@@ -83,42 +94,46 @@ const dataSourceItemProvider = async (userContext, dataSourceItem) => {
     // Required: the item carries its own copy of the data source.
     await dataSourceProvider(userContext, dataSourceItem.dataSource);
 
-    // Enable together with the SQL redirect above. Every SQL item gets a server query;
-    // unknown ids get one that returns no rows (returning null would run the item as sent).
-    // if (dataSourceItem instanceof reveal.RVSqlServerDataSourceItem) {
-    //     dataSourceItem.table = null;
-    //     dataSourceItem.procedure = null;
-    //     dataSourceItem.customQuery = SQL_ITEMS[dataSourceItem.id] ?? NO_ROWS;
-    //     dataSourceItem.customQueryParameters = {};
-    //     return dataSourceItem;
-    // }
-
-    // Locations the request chose. Replace with server-side allow-lists, e.g. a local file
-    // uri built only from known ids (see references/data-sources.md, "Files").
-    if (dataSourceItem instanceof reveal.RVRESTDataSourceItem
-        || dataSourceItem instanceof reveal.RVWebResourceDataSourceItem
-        || dataSourceItem instanceof reveal.RVODataDataSourceItem) {
-        dataSourceItem.url = BLOCKED_URL;
-    } else if (dataSourceItem instanceof reveal.RVLocalFileDataSourceItem) {
-        dataSourceItem.uri = BLOCKED_FILE;
-    } else if (dataSourceItem instanceof reveal.RVResourceBasedDataSourceItem && dataSourceItem.resourceItem) {
+    if (dataSourceItem instanceof reveal.RVResourceBasedDataSourceItem && dataSourceItem.resourceItem) {
         // Excel, CSV and JSON items wrap the REST, web or local file item that holds the location.
         await dataSourceItemProvider(userContext, dataSourceItem.resourceItem);
+    } else if (isMapped(dataSourceItem.dataSource)) {
+        // Every item on the app's database gets a server query; unknown ids get no rows.
+        // dataSourceItem.database = process.env.SQL_DATABASE;
+        // dataSourceItem.table = null;
+        // dataSourceItem.procedure = null;
+        // dataSourceItem.customQuery = SQL_ITEMS[dataSourceItem.id] ?? NO_ROWS;
+        // dataSourceItem.customQueryParameters = {};
+        neutralize(dataSourceItem); // remove once the lines above are enabled
+    } else if (!(dataSourceItem instanceof reveal.RVInMemoryDataSourceItem)) {
+        // REST, web, OData and local file locations stay blocked until mapped to a
+        // server-side allow-list (see references/data-sources.md, "Files").
+        console.warn(`Blocked data source item: ${dataSourceItem.constructor.name} (${dataSourceItem.id})`);
+        neutralize(dataSourceItem);
     }
     return dataSourceItem;
 };
 
-// The built-in dashboard loading and saving join the client's dashboard id into a path
-// without checking it (an id with ..%5c escapes the folder on 2.2.1), and let any caller
-// overwrite any dashboard. So: dashboards/ holds shared, read-only dashboards, and every
-// user saves into a private folder keyed by their id. A user can read the shared ones and
+// Both dashboard options are supplied, so loading and saving go through the same validated,
+// authorized path (the built-in ones are demo defaults that let any caller overwrite any
+// dashboard). The id must be letters, digits, dash or underscore.
+// dashboards/ holds shared, read-only dashboards, and every user saves into a private
+// folder keyed by their id. A user can read the shared ones and
 // their own, and can never write to (or read) anyone else's. Replace with the app's own
 // storage and rules (tenants, sharing) when it needs them.
 const DASHBOARDS_DIR = path.join(process.cwd(), "dashboards");
 const VALID_ID = /^[A-Za-z0-9_-]{1,100}$/;
 
 const userFolder = (userContext) =>
-    path.join(DASHBOARDS_DIR, "users", crypto.createHash("sha256").update(String(userContext.userId)).digest("hex"));
+    path.join(DASHBOARDS_DIR, "users", crypto.createHash("sha256").update(requireUserId(userContext)).digest("hex"));
+
+// Fail closed: the user context can be null (system calls, connection verification);
+// never fold a missing id into a shared folder.
+const requireUserId = (userContext) => {
+    const id = userContext?.userId;
+    if (id == null || String(id).trim() === "") throw new Error("No user");
+    return String(id);
+};
 
 const dashboardProvider = async (userContext, dashboardId) => {
     if (!VALID_ID.test(dashboardId)) return null;
