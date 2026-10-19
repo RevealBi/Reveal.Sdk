@@ -63,6 +63,9 @@ try {
   if (response && response.status() >= 400) throw new Error(`HTTP ${response.status()}`);
 } catch (e) {
   console.error(`page not found: ${target} (${String(e.message).split("\n")[0]})`);
+  if (/ERR_CONNECTION_REFUSED/.test(e.message)) {
+    console.error("The preview server is not running. Without a Reveal license key it exits seconds after start: read its console output.");
+  }
   await browser.close();
   process.exit(2);
 }

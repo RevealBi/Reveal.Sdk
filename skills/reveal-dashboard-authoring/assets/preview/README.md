@@ -2,6 +2,8 @@
 
 Renders `.rdash` files in a real Reveal server, so a generated or edited dashboard can be checked by looking at it, not just by serializing it. It's anonymous, read-only and bound to 127.0.0.1, for local use only. Never deploy it.
 
+It needs a Reveal license key in `~/.revealbi-sdk/license.key` or `REVEAL_LICENSE`. Without one the engine fails to start and the server exits seconds after printing its URL (reveal-sdk-node 2.2.1), so `check` reports a refused connection. A fresh container or CI runner has no key file.
+
 ```bash
 npm install
 npm start -- ../dom-ts/out            # or ../dom-dotnet/out, or any folder of .rdash files

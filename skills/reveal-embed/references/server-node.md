@@ -103,7 +103,7 @@ On Node, the providers are **functions passed as options**, not classes. The dat
 
 ## Mount path
 
-`app.use("/", reveal(...))` serves the Reveal endpoints at the root. If the app already owns `/`, mount it under a prefix such as `app.use("/reveal-api/", reveal(...))` and set the client's base URL to include that prefix: `RevealSdkSettings.setBaseUrl("https://host/reveal-api/")` (keep the trailing slash).
+`app.use("/", reveal(...))` serves the Reveal endpoints at the root. Mounted there, Reveal answers every request itself, including paths it doesn't know (404), and never passes one on: the app's pages, its `/api` routes and a Vite or webpack dev middleware registered after it all return 404 (verified on 2.2.1). The starters mount at `/` only because `express.static` runs first. If the app already owns `/`, mount it under a prefix such as `app.use("/reveal-api/", reveal(...))` and set the client's base URL to include that prefix: `RevealSdkSettings.setBaseUrl("https://host/reveal-api/")` (keep the trailing slash).
 
 **Mount Reveal before any body parser.** Reveal streams the raw request body to its engine. If `app.use(express.json())`, `express.urlencoded()`, `body-parser` or similar runs first, which is the case in most existing Express apps, the body is already consumed: dashboards still load (a GET), but every `POST .../dashboard/editor/widget/data` hangs for a while and returns `500 Something went wrong. Correlation Id: ...`, with nothing in the Node console (verified on 2.2.1). Put the Reveal mount above the parsers, or scope the parsers to the app's own routes (`app.use("/api", express.json())`). Auth middleware that only reads headers can stay in front of Reveal.
 

@@ -14,10 +14,12 @@
 // hosts, and the database file of SQLite/DuckDB. The preview never opens a host or file a
 // dashboard names, so treat its output for database widgets as "not checked": they show an
 // authentication or "cannot open" error here; check them in the app itself.
-// License: ~/.revealbi-sdk/license.key or REVEAL_LICENSE (without one the views carry a
-// trial watermark).
+// License: ~/.revealbi-sdk/license.key or REVEAL_LICENSE. Without one the engine fails to start
+// ("The license key is missing or has expired") and takes this process down seconds after the
+// "Preview on" line (reveal-sdk-node 2.2.1), so `check` then sees a refused connection.
 
 const fs = require("fs");
+const os = require("os");
 const path = require("path");
 const express = require("express");
 const reveal = require("reveal-sdk-node");
@@ -124,6 +126,10 @@ if (license) revealOptions.license = license;
 module.exports = { dataSourceProvider, dataSourceItemProvider, ownSampleUrl, BLOCKED_DB };
 
 if (require.main === module) {
+    const keyFile = path.join(os.homedir(), ".revealbi-sdk", "license.key");
+    if (!license && !fs.existsSync(keyFile)) {
+        console.warn(`No Reveal license key (REVEAL_LICENSE or ${keyFile}): the engine will fail to start and this server will exit.`);
+    }
     app.use("/", reveal(revealOptions));
     app.listen(PORT, "127.0.0.1", () =>
         console.log(`Preview on http://localhost:${PORT}/  (dashboards: ${DASHBOARDS_DIR})`));

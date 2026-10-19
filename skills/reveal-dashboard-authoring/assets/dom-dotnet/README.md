@@ -1,6 +1,6 @@
 # Reveal.Sdk.Dom workspace (.NET)
 
-A console project for writing and running `Reveal.Sdk.Dom` code. `Version="*-*"` always restores the newest prerelease. Requires the .NET 8 SDK or later.
+A console project for writing and running `Reveal.Sdk.Dom` code. `Version="*-*"` always restores the newest prerelease. Requires the .NET 8 SDK or later; it targets `net8.0` and rolls forward to a newer runtime when .NET 8 isn't installed.
 
 ```bash
 dotnet run -- test                     # build + run every example + check the documented traps
