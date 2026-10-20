@@ -96,7 +96,8 @@ function mountReveal(app, {
         false; // e.g. dataSource instanceof reveal.RVSqlServerDataSource && dataSource.id === "AppDb"
 
     // REST items served from sample-data/: item id -> file. Whatever URL the dashboard names,
-    // the engine reads this server's own copy over loopback.
+    // the engine reads this server's own copy over loopback. One line per JSON file the app
+    // serves, keyed by the dashboard item's id (reveal-dashboard-authoring: jsonFileItem).
     const SAMPLE_DATA = { sales: "sales.json" };
     const sampleUrl = (file) => `http://127.0.0.1:${port}/sample-data/${file}`;
 

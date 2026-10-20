@@ -1,9 +1,27 @@
-import { DataSource, DateField, NumberField, RestDataSourceItem, TextField } from "@revealbi/dom";
+import { DataSource, DateField, type IField, NumberField, RestDataSourceItem, TextField } from "@revealbi/dom";
 
-// The sample sales data served by ../preview (sample-data/sales.json). The URL stored in
-// the dashboard is a placeholder: the preview server maps the item id "sales" to the real
-// location, the same way an app's server-side data source provider should treat every
-// URL, host or table a dashboard names (see the reveal-embed skill, data-sources.md).
+// JSON files that the app's own server serves: reveal-embed's node-minimal app and ../preview
+// both serve sample-data/<file> and map an item id to its file (SAMPLE_DATA in
+// reveal-server.cjs and in ../preview/server.js). The URL stored in the dashboard is a
+// placeholder that never resolves, the same way an app's server-side data source provider
+// should treat every URL, host or table a dashboard names (reveal-embed, data-sources.md).
+
+/**
+ * An item for a JSON file (an array of flat objects) that the app's server serves itself.
+ * `id` is what the server maps to the file, so keep it stable; declare every field the
+ * visualizations bind, with its type. Build REST/JSON items only this way: the no-argument
+ * `new RestDataSourceItem()`, or assigning `item.dataSource` afterwards, drops the JSON wrapper
+ * Reveal needs, and every widget fails with "unknown type ('REST')" (@revealbi/dom 0.3.0).
+ */
+export function jsonFileItem(id: string, title: string, fields: IField[]): RestDataSourceItem {
+  const dataSource = new DataSource("Sample data");
+  dataSource.id = "SampleData";
+  const item = new RestDataSourceItem(title, `https://sample-data.invalid/${id}.json`, dataSource);
+  item.id = id;
+  item.isAnonymous = true;
+  item.fields = fields;
+  return item;
+}
 
 /** Field names as constants, so a typo is a compile error instead of a broken widget. */
 export const Sales = {
@@ -16,14 +34,9 @@ export const Sales = {
   Revenue: "Revenue",
 } as const;
 
+/** The sample sales data: sample-data/sales.json, item id "sales". */
 export function salesItem(): RestDataSourceItem {
-  const dataSource = new DataSource("Sample data");
-  dataSource.id = "SampleData";
-
-  const item = new RestDataSourceItem("Sales", "https://sample-data.invalid/sales.json", dataSource);
-  item.id = "sales";
-  item.isAnonymous = true;
-  item.fields = [
+  return jsonFileItem("sales", "Sales", [
     new NumberField(Sales.OrderId),
     new DateField(Sales.OrderDate),
     new TextField(Sales.Region),
@@ -31,6 +44,5 @@ export function salesItem(): RestDataSourceItem {
     new TextField(Sales.Category),
     new NumberField(Sales.Quantity),
     new NumberField(Sales.Revenue),
-  ];
-  return item;
+  ]);
 }

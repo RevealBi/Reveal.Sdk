@@ -239,7 +239,9 @@ if (okDash.length && !t.widgets.length) {
   add("The dashboard loaded, but no widget requested data.", "Check the page errors; a RevealView inside an element with no height draws nothing.");
 }
 for (const w of t.widgets.filter((w) => w.status >= 400 || w.error)) {
-  const cause = /Something went wrong/i.test(w.error ?? "") || w.status >= 500
+  const cause = /unknown type \('REST'\)/i.test(w.error ?? "")
+    ? "The dashboard's REST item lost its JSON wrapper: it was built with new RestDataSourceItem() and no arguments, or item.dataSource was assigned afterwards. Rebuild it with jsonFileItem (reveal-dashboard-authoring, sample-data.ts) or new RestDataSourceItem(title, url, dataSource)."
+    : /Something went wrong/i.test(w.error ?? "") || w.status >= 500
     ? "If every widget fails this way, a body parser (express.json()) runs before Reveal; otherwise search the engine log for the correlation id."
     : "The server could not get the widget's data: an item the server's providers block (map it to a server-side location), a database it cannot reach, or a wrong field.";
   add(`Widget error: ${w.error ?? `HTTP ${w.status}`}`, cause);

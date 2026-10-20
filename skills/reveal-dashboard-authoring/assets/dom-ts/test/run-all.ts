@@ -9,11 +9,13 @@ import { strToU8, zipSync } from "fflate";
 import {
   CandleStickVisualization, ColumnChartVisualization, DashboardDataFilter, DashboardDateFilter, DateAggregationType,
   DateDataField, DateField, DateRange, DateRuleType, GridVisualization, LinkFilter, MicrosoftSqlServerDataSource,
-  MicrosoftSqlServerDataSourceItem, NumberField, RdashDocument, TextBoxVisualization, TextField, VisualizationLinker,
+  MicrosoftSqlServerDataSourceItem, NumberField, RdashDocument, RestDataSource, RestDataSourceItem, TextBoxVisualization, TextField,
+  VisualizationLinker,
 } from "@revealbi/dom";
 import { assertBoundFieldsExist, findBindingProblems } from "../src/lib/guard.js";
 import { loadRdash, readRdashJson, saveRdash } from "../src/lib/rdash-file.js";
 import { salesItem } from "../src/lib/sample-data.js";
+import { createAppJsonDashboard } from "../src/examples/app-json-dashboard.js";
 import { createSalesDashboard } from "../src/examples/create-sales-dashboard.js";
 import { editDashboard } from "../src/examples/edit-dashboard.js";
 import { createOrdersDashboard } from "../src/examples/sql-server-dashboard.js";
@@ -46,6 +48,37 @@ await test("edit: load, rename, delete, add and save", async () => {
   assert.deepEqual(s.visualizations.map(v => v.title),
     ["Revenue by product", "Revenue", "Revenue by month", "Category mix", "Revenue by region and category"]);
   assert.equal(s.visualizations[0].item, "sales");
+});
+
+await test("app-json: KPI, column, line and grid on a JSON-file item, kept inside its JSON wrapper", async () => {
+  await saveRdash(createAppJsonDashboard(), `${dir}/SalesOverview.rdash`);
+  const json = await readRdashJson(`${dir}/SalesOverview.rdash`) as any;
+  assert.equal(summarize(json).visualizations.length, 4);
+  for (const w of json.Widgets) {
+    assert.equal(w.DataSpec.DataSourceItem.DataSourceId, "__JSON");
+    assert.equal(w.DataSpec.DataSourceItem.ResourceItem.Id, "sales");   // the id the server maps to the file
+  }
+});
+
+await test("trap: a REST item without its JSON wrapper (no-argument constructor, late .dataSource); the guard catches it", () => {
+  // What an agent wrote from memory in a testbed run; every widget then failed with "unknown type ('REST')".
+  const rest = new RestDataSource();
+  rest.id = "OrdersDataSource";
+  const item = new RestDataSourceItem("Orders");
+  item.id = "orders";
+  item.dataSource = rest;
+  item.fields = [new TextField("Region")];
+  const doc = new RdashDocument("x");
+  doc.visualizations = [new GridVisualization("g", item).setColumns("Region")];
+  const json = doc.toJson() as any;
+  assert.equal(json.Widgets[0].DataSpec.DataSourceItem.DataSourceId, "OrdersDataSource", "fixed: the item keeps its JSON wrapper now, update SKILL.md");
+  assert.throws(() => assertBoundFieldsExist(json), /without its JSON wrapper/);
+  // Assigning .dataSource after the three-argument constructor drops the wrapper too.
+  const late = salesItem();
+  late.dataSource = rest;
+  const lateDoc = new RdashDocument("y");
+  lateDoc.visualizations = [new GridVisualization("g", late).setColumns("Region")];
+  assert.throws(() => assertBoundFieldsExist(lateDoc.toJson()), /without its JSON wrapper/);
 });
 
 await test("sql: database connector example keeps explicit ids", async () => {

@@ -114,7 +114,7 @@ Constructors and the item properties that matter differ per connector (checked a
 | Amazon Athena | `AmazonAthenaDataSource` (`database`, `region`, `workgroup`, `dataCatalog`, `outputLocation`) | `(title, ds)` | `table` | `AMAZON_ATHENA` |
 | Google BigQuery | `GoogleBigQueryDataSource` (`projectId`) | `(title, ds)` | `dataSetId`, `projectId`, `table` | `BIG_QUERY` |
 | MongoDB | `MongoDbDataSource` (`connectionString`, `database`) | `(title, ds)` | `collection`, `processDataOnServer` | `MONGODB` |
-| REST (JSON, CSV, Excel) | `DataSource` (or `RestDataSource`) | `(title, uri, ds)` and others | `uri`, `isAnonymous`, `useCsv()`, `useExcel(sheet)`, `addHeader()` | `REST` (+ `JSON` / `CSVLOCALFILEPROVIDER` / `EXCELLOCALFILEPROVIDER` wrapper) |
+| REST (JSON, CSV, Excel) | `DataSource` (or `RestDataSource`) | `(title, uri, ds)`; never the no-argument form, and never assign `item.dataSource` afterwards (both drop the wrapper: "unknown type ('REST')") | `uri`, `isAnonymous`, `useCsv()`, `useExcel(sheet)`, `addHeader()` | `REST` (+ `JSON` / `CSVLOCALFILEPROVIDER` / `EXCELLOCALFILEPROVIDER` wrapper) |
 
 Treat these as unreliable in 0.3.0 and check them in the app before shipping (or build them in the Reveal editor or with Reveal.Sdk.Dom): Athena, BigQuery and MongoDB (the DOM writes property names that differ from the ones the Reveal 2.2.1 client reads), Oracle by service name (`Service` instead of `SERVICE_NAME`, both libraries), OData and web service items (`URL` key; the web service item is not wrapped as JSON), Google Sheets (no spreadsheet id), Amazon S3, Analysis Services (the data source is not written into the file; a Grid is rejected, only XMLA visualizations work), and local files (`CsvDataSource`, `ExcelDataSource`, `JsonDataSource`, `LocalFileDataSource` have no item class).
 
@@ -123,6 +123,7 @@ A REST endpoint returning JSON, CSV or Excel:
 ```ts
 import { DataSource, RestDataSourceItem, TextField, NumberField, PieChartVisualization } from "@revealbi/dom";
 
+// All three arguments here, and no item.dataSource = ... later: either loses the JSON wrapper.
 const item = new RestDataSourceItem("Sales by Category", "https://api.example.com/sales", new DataSource("Sales API"));
 item.isAnonymous = true;               // false when the server's authentication provider supplies a token
 item.fields = [new TextField("CategoryName"), new NumberField("ProductSales")];
@@ -131,7 +132,7 @@ item.fields = [new TextField("CategoryName"), new NumberField("ProductSales")];
 const pie = new PieChartVisualization("Sales", item).setLabel("CategoryName").setValue("ProductSales");
 ```
 
-The URL is stored in the dashboard and visible to anyone who can load it. On the server, the data source provider should still force the URL to an allowed host (`reveal-embed` data-sources.md).
+The URL is stored in the dashboard and visible to anyone who can load it. On the server, the data source provider should still force the URL to an allowed host (`reveal-embed` data-sources.md). For a JSON file the app serves itself, use `jsonFileItem(id, title, fields)` from `src/lib/sample-data.ts`: a placeholder URL, and the server maps the id to the file (SKILL.md, "A dashboard on the app's own JSON file").
 
 ## Write it out
 
