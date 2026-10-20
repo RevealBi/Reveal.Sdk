@@ -41,6 +41,8 @@ Referencing the package without the `RegisterXxx()` call fails with "The data so
 
 The client describes data sources by **id and title only**. The server fills in everything else. This keeps hosts, databases and credentials out of the browser, and lets you vary them per user.
 
+Whoever may open a dashboard can request every row and column its items return, in any grouping, not only what the visualizations show. Map items to queries that return only what the dashboards need. With anonymous viewing (an app without login, user-context-security.md) that is everyone who can reach the app.
+
 Client, offered in the editor's "Select a Data Source" dialog:
 
 ```js

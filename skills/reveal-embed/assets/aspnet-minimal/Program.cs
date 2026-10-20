@@ -1,11 +1,18 @@
 // Minimal ASP.NET Core host for the Reveal SDK. Serves the Reveal endpoints and a
-// same-origin page from wwwroot, so the client needs no setBaseUrl and no CORS.
+// same-origin page from wwwroot (so the client needs no setBaseUrl and no CORS) that shows the
+// sample dashboard, Dashboards/Sales.rdash, view only.
 //
-//     dotnet run -- --anonymous-demo    ->  http://localhost:5111/
+//     dotnet run    ->  http://localhost:5111/
 //
-// Without --anonymous-demo every Reveal endpoint requires an authenticated user, and
-// requests fail until the app's real authentication is added below. The flag is for a
-// local first run only: it allows anonymous access and listens on localhost alone.
+// Who may open dashboards is decided here, in code. This sample has no login, so it allows
+// anonymous viewing. Once the app has login, set allowAnonymous to false and replace the
+// placeholder scheme below with the real one: every Reveal endpoint then requires a signed-in
+// user. Saves are refused unless allowEditing is true; each user then saves into a private
+// folder (with allowAnonymous, every visitor shares one).
+//
+// The sample's "sales" item names a placeholder URL; DataSourceProvider maps it to
+// wwwroot/sample-data/sales.json, served by this app. Delete the dashboard, the data and that
+// rule together once the app has its own data.
 //
 // License: put the raw key in ~/.revealbi-sdk/license.key, or set Reveal:License in
 // configuration (user secrets, environment variable Reveal__License, key vault).
@@ -17,9 +24,16 @@ using Microsoft.Extensions.Options;
 using Reveal.Sdk;
 using Reveal.Sdk.Data;   // RegisterXxx() connector extensions live here
 
-var anonymousDemo = args.Contains("--anonymous-demo");
+var allowAnonymous = true;   // no login yet: anyone who can open the app can view dashboards
+var allowEditing = false;    // view only: saves are refused
 
-var builder = WebApplication.CreateBuilder(args.Where(a => a != "--anonymous-demo").ToArray());
+var builder = WebApplication.CreateBuilder(args);
+
+// http://localhost:5111 unless --urls or ASPNETCORE_URLS say otherwise.
+if (string.IsNullOrEmpty(builder.Configuration["urls"]))
+{
+    builder.WebHost.UseUrls("http://localhost:5111");
+}
 
 // Replace the placeholder with the app's real scheme (cookie, JWT bearer, OpenID Connect), e.g.:
 // builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer(...);
@@ -29,7 +43,7 @@ builder.Services.AddAuthorization(o =>
 {
     // Reveal's controllers have no [Authorize] of their own; this fallback policy covers
     // them. UseAuthentication alone only identifies the caller, it does not reject anyone.
-    if (!anonymousDemo)
+    if (!allowAnonymous)
     {
         o.FallbackPolicy = new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build();
     }
@@ -38,15 +52,7 @@ builder.Services.AddAuthorization(o =>
 // Excel/CSV exports POST the widget's data back to the server. Kestrel's 30 MB default
 // makes large exports fail with only "Export failed" in the UI. Raise any reverse
 // proxy's limit (IIS, nginx, gateway) to match.
-builder.WebHost.ConfigureKestrel(o =>
-{
-    o.Limits.MaxRequestBodySize = 256L * 1024 * 1024;
-    if (anonymousDemo)
-    {
-        // Loopback only, whatever --urls or ASPNETCORE_URLS say.
-        o.ListenLocalhost(5111);
-    }
-});
+builder.WebHost.ConfigureKestrel(o => o.Limits.MaxRequestBodySize = 256L * 1024 * 1024);
 
 builder.Services.AddControllers().AddReveal(reveal =>
 {
@@ -64,7 +70,7 @@ builder.Services.AddControllers().AddReveal(reveal =>
     // reveal.DataSources.RegisterMicrosoftSqlServer();
 
     reveal.AddUserContextProvider<UserContextProvider>();
-    builder.Services.AddSingleton(new RevealDemoMode(anonymousDemo));
+    builder.Services.AddSingleton(new RevealAccess(allowAnonymous, allowEditing));
     reveal.AddDataSourceProvider<DataSourceProvider>();
     reveal.AddDashboardProvider<DashboardProvider>();
 });
@@ -94,8 +100,8 @@ app.MapControllers();
 
 app.Run();
 
-/// <summary>Whether the app runs with --anonymous-demo; read by UserContextProvider.</summary>
-public sealed record RevealDemoMode(bool Enabled);
+/// <summary>Who may open dashboards and whether they can save them; read by the providers.</summary>
+public sealed record RevealAccess(bool AllowAnonymous, bool AllowEditing);
 
 // Stands in for the app's real scheme: identifies nobody, so protected requests get 401.
 // Delete it once real authentication is configured.

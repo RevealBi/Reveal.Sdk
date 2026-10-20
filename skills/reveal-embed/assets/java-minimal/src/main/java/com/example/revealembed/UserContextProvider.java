@@ -15,10 +15,10 @@ import java.util.Map;
  * before Reveal runs, so this is a backstop; SecurityConfig is what returns 401.
  */
 public class UserContextProvider implements IRVServletUserContextProvider {
-    private final boolean anonymousDemo;
+    private final boolean allowAnonymous;
 
-    public UserContextProvider(boolean anonymousDemo) {
-        this.anonymousDemo = anonymousDemo;
+    public UserContextProvider(boolean allowAnonymous) {
+        this.allowAnonymous = allowAnonymous;
     }
 
     @Override
@@ -30,8 +30,8 @@ public class UserContextProvider implements IRVServletUserContextProvider {
 
         Principal principal = request.getUserPrincipal();
         if (principal == null) {
-            if (anonymousDemo) {
-                return new RVUserContext("anonymous", properties);
+            if (allowAnonymous) {
+                return new RVUserContext("anonymous", properties);   // every visitor shares one context
             }
             throw new IllegalStateException("Unauthenticated request");
         }

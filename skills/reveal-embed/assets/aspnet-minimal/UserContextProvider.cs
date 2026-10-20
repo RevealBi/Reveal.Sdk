@@ -8,7 +8,7 @@ using Reveal.Sdk;
 /// Identity must come from the app's own authentication (cookie, JWT), never from a
 /// header the browser chose. Wire up the app's auth middleware and read HttpContext.User.
 /// </summary>
-public class UserContextProvider(RevealDemoMode demo) : IRVUserContextProvider
+public class UserContextProvider(RevealAccess access) : IRVUserContextProvider
 {
     public IRVUserContext GetUserContext(HttpContext httpContext)
     {
@@ -23,9 +23,9 @@ public class UserContextProvider(RevealDemoMode demo) : IRVUserContextProvider
             if (string.IsNullOrWhiteSpace(userId))
                 throw new InvalidOperationException("Authenticated user has no stable identifier.");
         }
-        else if (demo.Enabled)
+        else if (access.AllowAnonymous)
         {
-            userId = "anonymous";   // --anonymous-demo only: every visitor shares one folder
+            userId = "anonymous";   // allowAnonymous only: every visitor shares one context
         }
         else
         {

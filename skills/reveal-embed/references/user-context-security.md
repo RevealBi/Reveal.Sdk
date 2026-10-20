@@ -56,7 +56,7 @@ app.MapControllers();   // or app.MapControllers().RequireAuthorization();
 
 Mark the app's own public endpoints (login, health checks) with `[AllowAnonymous]`.
 
-Node: `userContextProvider: (request) => new reveal.RVUserContext(stableIdOf(request.user), props)`, where `stableIdOf` throws when there is no user or the principal has no stable id, missing or blank (never default to `undefined` or a shared `"anonymous"`; see [assets/node-minimal](../assets/node-minimal)). It runs after the app's auth middleware has populated `request.user` (Passport, express-jwt). Mount the auth middleware before `app.use(..., reveal(...))`, and make sure it returns `401` when there is no user. `passport.authenticate(..., { session: false })` and `express-jwt` with `credentialsRequired: true` (the default) do; `passport.session()` alone, or `express-jwt` with `credentialsRequired: false`, only populate `request.user` and let anonymous requests through. If in doubt, add a guard:
+Node: `userContextProvider: (request) => new reveal.RVUserContext(stableIdOf(request.user), props)`, where `stableIdOf` throws when there is no user or the principal has no stable id, missing or blank (never default to `undefined` or a shared `"anonymous"`, except in an app without login, below; see [assets/node-minimal](../assets/node-minimal)). It runs after the app's auth middleware has populated `request.user` (Passport, express-jwt). Mount the auth middleware before `app.use(..., reveal(...))`, and make sure it returns `401` when there is no user. `passport.authenticate(..., { session: false })` and `express-jwt` with `credentialsRequired: true` (the default) do; `passport.session()` alone, or `express-jwt` with `credentialsRequired: false`, only populate `request.user` and let anonymous requests through. If in doubt, add a guard:
 
 ```js
 const requireAuth = (req, res, next) => (req.user ? next() : res.sendStatus(401));
@@ -64,6 +64,20 @@ app.use("/reveal-api", authenticate, requireAuth, reveal(revealOptions));
 ```
 
 Java: build it in the `RevealEngineServlet` user context lambda from `request.getUserPrincipal()` or the Spring Security context (see [assets/java-minimal](../assets/java-minimal)).
+
+### An app without login
+
+If the app has no login at all, everyone who can reach it already sees all of it. Let the same people view its dashboards, and decide it in the code or configuration the project ships, next to the Reveal registration. Never decide it with a start argument or an environment variable: those exist only in the terminal that used them, so your own run passes while the user's `npm run dev`, an IDE run button or CI gets 401. The starters do it with one setting: `allowAnonymous` (aspnet-minimal's Program.cs, node-minimal's `mountReveal`) or `reveal.allow-anonymous` (java-minimal). By hand:
+
+- ASP.NET: no fallback policy, and the user context provider returns one shared `"anonymous"` context for unauthenticated requests.
+- Node: no `requireAuth` in front of `reveal(...)`, and `userContextProvider` returns `new reveal.RVUserContext("anonymous", props)` when there is no `request.user`.
+- Java: `permitAll()` for `/reveal-api/**`, and the user context provider returns `"anonymous"` when there is no principal.
+
+Then:
+
+- Keep dashboards view only (dashboards.md). With editing on, every visitor shares one folder and can change what the others see.
+- Anonymous viewers can request everything the mapped items return, not only what the dashboards show: map items to queries with only the rows and columns the dashboards need (data-sources.md).
+- Say in your summary that the dashboards are open to anyone who can open the app. Once the app has login, turn anonymous viewing off.
 
 ### A null user context
 

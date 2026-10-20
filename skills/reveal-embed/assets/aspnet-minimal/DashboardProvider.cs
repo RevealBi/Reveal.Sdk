@@ -4,13 +4,13 @@ using System.Text.RegularExpressions;
 using Reveal.Sdk;
 
 /// <summary>
-/// Dashboards in Dashboards/ are shared and read-only. Every user saves into a private
-/// folder keyed by their id: they can load the shared dashboards and their own, and can
-/// never read or overwrite another user's. The built-in provider lets any caller overwrite
-/// any dashboard. Replace with the app's own storage and rules (tenants, sharing) when
-/// it needs them.
+/// Dashboards in Dashboards/ are shared and never written. Saves are refused unless
+/// allowEditing is set (Program.cs); then every user saves into a private folder keyed by
+/// their id: they can load the shared dashboards and their own, and can never read or
+/// overwrite another user's. The built-in provider lets any caller overwrite any dashboard.
+/// Replace with the app's own storage and rules (tenants, sharing) when it needs them.
 /// </summary>
-public partial class DashboardProvider : IRVDashboardProvider
+public partial class DashboardProvider(RevealAccess access) : IRVDashboardProvider
 {
     // Resolved against the working directory: start the app from its folder (dotnet run does),
     // or make this an absolute path from configuration. wwwroot resolves the same way.
@@ -33,7 +33,8 @@ public partial class DashboardProvider : IRVDashboardProvider
     public Task<Dashboard?> GetDashboardAsync(IRVUserContext userContext, string dashboardId)
     {
         if (!ValidId().IsMatch(dashboardId)) return Task.FromResult<Dashboard?>(null);
-        foreach (var dir in new[] { UserDir(userContext), SharedDir })
+        var dirs = access.AllowEditing ? new[] { UserDir(userContext), SharedDir } : new[] { SharedDir };
+        foreach (var dir in dirs)
         {
             var file = Path.Combine(dir, dashboardId + ".rdash");
             if (File.Exists(file)) return Task.FromResult<Dashboard?>(new Dashboard(file));
@@ -43,6 +44,8 @@ public partial class DashboardProvider : IRVDashboardProvider
 
     public async Task SaveDashboardAsync(IRVUserContext userContext, string dashboardId, Dashboard dashboard)
     {
+        // View only: the page hides editing (canEdit = false); this closes the endpoint too.
+        if (!access.AllowEditing) throw new InvalidOperationException("Saving dashboards is turned off.");
         if (!ValidId().IsMatch(dashboardId)) throw new ArgumentException("Invalid dashboard id.");
         var dir = UserDir(userContext);
         Directory.CreateDirectory(dir);

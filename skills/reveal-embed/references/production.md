@@ -11,6 +11,10 @@ Without a valid key the SDK does not function, or shows a watermark on trial. Ei
 
 If a NuGet install still shows the watermark after licensing, clear the Reveal packages from the NuGet cache and reinstall.
 
+## Who can open dashboards
+
+An app that allows anonymous viewing (no login; user-context-security.md) serves its dashboards, and every row its mapped items return, to anyone who can reach it. Before deploying it where others can reach it, put it behind login, or confirm that the data is meant to be public. Keep saving off there (dashboards.md, "View only").
+
 ## CORS and base URL
 
 - Replace development `AllowAnyOrigin` with the real client origins.

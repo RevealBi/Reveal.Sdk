@@ -12,7 +12,11 @@ import org.springframework.context.annotation.Configuration;
 public class RevealConfig {
 
     @Bean
-    ServletRegistrationBean<RevealEngineServlet> revealServlet(@Value("${reveal.dashboards-dir}") String dashboardsDir) {
+    ServletRegistrationBean<RevealEngineServlet> revealServlet(
+            @Value("${reveal.dashboards-dir}") String dashboardsDir,
+            @Value("${reveal.allow-anonymous:false}") boolean allowAnonymous,
+            @Value("${reveal.allow-editing:false}") boolean allowEditing,
+            @Value("${server.port}") int port) {
         // The Supplier runs in the servlet's init(); the engine process starts there and
         // stops in destroy().
         RevealEngineServlet servlet = new RevealEngineServlet(
@@ -20,8 +24,8 @@ public class RevealConfig {
                 // Always set one that validates the id and authorizes the user: without it
                 // Reveal falls back to RVDashboardProvider on ~/dashboards, a demo default
                 // that lets any caller overwrite any dashboard.
-                .setDashboardProvider(new DashboardProvider(Paths.get(dashboardsDir)))
-                .setDataSourceProvider(new DataSourceProvider())
+                .setDashboardProvider(new DashboardProvider(Paths.get(dashboardsDir), allowEditing))
+                .setDataSourceProvider(new DataSourceProvider(port))
                 // Add the app's credentials here, e.g. .setAuthenticationProvider(new AuthenticationProvider())
                 .addSettings(settings -> {
                     // Only set a non-blank key; an empty or whitespace one disables the key file fallback.
@@ -31,7 +35,7 @@ public class RevealConfig {
                     }
                 })
                 .build(),
-            new UserContextProvider(RevealEmbedApplication.anonymousDemo));
+            new UserContextProvider(allowAnonymous));
 
         // The client's base URL must include this prefix (see static/index.html).
         ServletRegistrationBean<RevealEngineServlet> reg = new ServletRegistrationBean<>(servlet, "/reveal-api/*");
