@@ -13,14 +13,18 @@
     <div id="revealView"></div>
 
     <script type="module">
-        // Pin the version, and keep it in step with the server package.
-        import { RevealView, RVDashboard } from "https://cdn.jsdelivr.net/npm/reveal-sdk@2.2.1/dist/reveal-sdk.esm.js";
+        // Pin the version, and keep it in step with the server package. With a bundler, import
+        // the same names from the "reveal-sdk" npm package instead.
+        import { RevealView, RevealSdkSettings, RVDashboard } from "https://cdn.jsdelivr.net/npm/reveal-sdk@2.2.1/dist/reveal-sdk.esm.js";
 
-        // Same origin as the server, so no RevealSdkSettings.setBaseUrl is needed.
-        // Pass ?dashboard=<name> to load dashboards/<name>.rdash; with none, an empty
-        // dashboard opens in the editor. It offers no data sources until the server maps one
-        // and the page adds it in revealView.onDataSourcesRequested (references/data-sources.md).
-        const name = new URLSearchParams(location.search).get("dashboard");
+        // Same origin, but the server mounts Reveal under /reveal-api/ (keep the trailing slash).
+        RevealSdkSettings.setBaseUrl(`${location.origin}/reveal-api/`);
+
+        // Opens dashboards/Sales.rdash, the sample; ?dashboard=<name> loads dashboards/<name>.rdash.
+        // ?new opens an empty dashboard in the editor. It offers no data sources until the server
+        // maps one and the page adds it in revealView.onDataSourcesRequested (references/data-sources.md).
+        const params = new URLSearchParams(location.search);
+        const name = params.has("new") ? null : params.get("dashboard") || "Sales";
         const revealView = new RevealView("#revealView");
 
         if (name) {

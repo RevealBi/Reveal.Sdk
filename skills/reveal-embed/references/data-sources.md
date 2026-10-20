@@ -141,7 +141,7 @@ const dataSourceItemProvider = async (userContext, item) => {
   // above for every connector type the app enables (REST: overwrite the URL from server
   // config; files: resolve the URI from an allow-list), and neutralize everything else.
   console.warn(`Blocked data source item type: ${item.constructor.name}`);
-  neutralize(item); // overwrite url/host/uri/database, no-rows query: see assets/node-minimal/main.js
+  neutralize(item); // overwrite url/host/uri/database, no-rows query: see assets/node-minimal/reveal-server.cjs
   return item;
 };
 ```

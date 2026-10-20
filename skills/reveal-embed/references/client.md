@@ -16,7 +16,7 @@ Pin the version in CDN URLs for production. Use the same version as the server p
 ## The three lines that matter
 
 ```js
-RevealSdkSettings.setBaseUrl("https://reveal-server.example.com/"); // only if the server is on another origin; keep the trailing slash
+RevealSdkSettings.setBaseUrl(`${location.origin}/reveal-api/`);     // the server's mount prefix, or "https://reveal-server.example.com/" on another origin; keep the trailing slash
 const dashboard = await RVDashboard.loadDashboard("Sales");          // file name without .rdash
 const revealView = new RevealView(hostElement);                      // element or selector
 revealView.dashboard = dashboard;

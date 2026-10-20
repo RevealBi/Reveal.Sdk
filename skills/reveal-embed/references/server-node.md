@@ -46,13 +46,15 @@ if (license) revealOptions.license = license;
 // Fail closed: authentication only identifies the caller, this rejects anyone it did not identify.
 const requireAuth = (req, res, next) => (req.user ? next() : res.sendStatus(401));
 
-app.use("/", requireAuth, reveal(revealOptions));
+// Under a prefix, above express.json() and the app's own routes (see Mount path). The client
+// calls RevealSdkSettings.setBaseUrl(location.origin + "/reveal-api/").
+app.use("/reveal-api/", requireAuth, reveal(revealOptions));
 app.listen(5111);
 ```
 
 `userContextProvider` only derives the context. Make it throw when `request.user` has no stable id (missing or blank) rather than mapping to a shared "anonymous" user (see [assets/node-minimal](../assets/node-minimal)).
 
-**License on Node:** with `license` omitted, the engine reads `~/.revealbi-sdk/license.key` of the account running the process, or runs as a trial. A `license` option that is present but empty makes 2.2.1 log `The license key is missing or has expired. Engine failed to start` and throw `Engine exited abnormally`, which can take down the whole Node process. Do not add an empty `REVEAL_LICENSE=` to a real `.env`; a commented line in `.env.example` is fine (verified on 2.2.1).
+**License on Node:** with `license` omitted, the engine reads `~/.revealbi-sdk/license.key` of the account running the process. There is no keyless trial on 2.2.1: with no key at all, it logs `The license key is missing or has expired. Engine failed to start` and the process exits seconds after start (verified on Linux; a fresh container or CI runner has no key file). A `license` option that is present but empty makes 2.2.1 log `The license key is missing or has expired. Engine failed to start` and throw `Engine exited abnormally`, which can take down the whole Node process. Do not add an empty `REVEAL_LICENSE=` to a real `.env`; a commented line in `.env.example` is fine (verified on 2.2.1).
 
 TypeScript compiled to CommonJS (`"module": "commonjs"`, no `"type": "module"`; `npm install -D typescript @types/express @types/cors`):
 
@@ -66,7 +68,7 @@ if (process.env.CLIENT_ORIGIN) app.use(cors({ origin: process.env.CLIENT_ORIGIN.
 
 const revealOptions: RevealOptions = { /* same keys as above */ };
 // requireAuth as defined above, after the app's authentication middleware.
-app.use("/", requireAuth, reveal(revealOptions));
+app.use("/reveal-api/", requireAuth, reveal(revealOptions));
 app.listen(5111);
 ```
 
@@ -103,7 +105,7 @@ On Node, the providers are **functions passed as options**, not classes. The dat
 
 ## Mount path
 
-`app.use("/", reveal(...))` serves the Reveal endpoints at the root. Mounted there, Reveal answers every request itself, including paths it doesn't know (404), and never passes one on: the app's pages, its `/api` routes and a Vite or webpack dev middleware registered after it all return 404 (verified on 2.2.1). The starters mount at `/` only because `express.static` runs first. If the app already owns `/`, mount it under a prefix such as `app.use("/reveal-api/", reveal(...))` and set the client's base URL to include that prefix: `RevealSdkSettings.setBaseUrl("https://host/reveal-api/")` (keep the trailing slash).
+Mount Reveal under a prefix, `app.use("/reveal-api/", reveal(...))`, and set the client's base URL to include it: `RevealSdkSettings.setBaseUrl(location.origin + "/reveal-api/")` on the same origin, or `"https://host/reveal-api/"` (keep the trailing slash). Mounted at `/`, Reveal answers every request itself, including paths it doesn't know (404), and never passes one on: the app's pages, its `/api` routes and a Vite or webpack dev middleware registered after it all return 404 (verified on 2.2.1). `/` only works when Reveal is the last thing the server mounts and everything else is registered before it.
 
 **Mount Reveal before any body parser.** Reveal streams the raw request body to its engine. If `app.use(express.json())`, `express.urlencoded()`, `body-parser` or similar runs first, which is the case in most existing Express apps, the body is already consumed: dashboards still load (a GET), but every `POST .../dashboard/editor/widget/data` hangs for a while and returns `500 Something went wrong. Correlation Id: ...`, with nothing in the Node console (verified on 2.2.1). Put the Reveal mount above the parsers, or scope the parsers to the app's own routes (`app.use("/api", express.json())`). Auth middleware that only reads headers can stay in front of Reveal.
 
@@ -147,7 +149,7 @@ await app.listen(port);
 
 ## Dashboards
 
-By default dashboards load from a `dashboards` folder (lower case) in the **working directory** of the process, so start the server from the project root. **Treat the built-in loader and saver as demo defaults; do not rely on them in a real app.** Supply **both** a `dashboardProvider` and a `dashboardStorageProvider` that validate the id (letters, digits, dash, underscore) **and decide who may read or write which dashboard** ([assets/node-minimal](../assets/node-minimal) does both: shared dashboards are read-only, each user saves into their own folder):
+By default dashboards load from a `dashboards` folder (lower case) in the **working directory** of the process, so start the server from the project root. **Treat the built-in loader and saver as demo defaults; do not rely on them in a real app.** Supply **both** a `dashboardProvider` and a `dashboardStorageProvider` that validate the id (letters, digits, dash, underscore; 2.2.1 hands `…/DashboardFile/..%5Cname` to the provider as `..\name`, a path separator on Windows) **and decide who may read or write which dashboard** ([assets/node-minimal](../assets/node-minimal) does both: shared dashboards are read-only, each user saves into their own folder):
 
 ```js
 const crypto = require("crypto");
@@ -194,6 +196,8 @@ const dashboardStorageProvider = async (userContext, dashboardId, stream) => {
     }
 };
 ```
+
+`dashboardProvider` returns a stream (`fs.createReadStream`) or `null`. On 2.2.1 a Buffer or string (`fs.readFileSync`) crashes the whole Node process on the first dashboard request: `TypeError: dashboardStream.pipe is not a function`. `dashboardStorageProvider` is a function `(userContext, dashboardId, stream)`, not an object of methods.
 
 This relies on `userContextProvider` rejecting a missing or blank user id, so no two users share a folder. Replace it with the app's own storage and rules (tenants, sharing) when it needs them; see dashboards.md.
 

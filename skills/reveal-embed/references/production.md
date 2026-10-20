@@ -6,7 +6,7 @@ Sources: https://help.revealbi.io/web/adding-license-key/, `configure-export`, `
 
 Without a valid key the SDK does not function, or shows a watermark on trial. Either:
 
-- **Key file**: `~/.revealbi-sdk/license.key` in the home directory of the account the server runs as (on IIS or a service, that is the app pool or service account's profile, not the developer's). The file holds only the raw key: no quotes, comments or trailing code. Otherwise startup throws an invalid Base64 error.
+- **Key file**: `~/.revealbi-sdk/license.key` in the home directory of the account the server runs as (on IIS or a service, that is the app pool or service account's profile, not the developer's). The file holds only the raw key: no quotes, comments or trailing code. Otherwise startup throws an invalid Base64 error. Check that it exists without printing it (`test -s ~/.revealbi-sdk/license.key`): a coding agent's transcript keeps whatever it prints.
 - **In code**: `settings.License = ...` (ASP.NET), `settings.setLicense(...)` (Java), `license:` option (Node). Read it from configuration or a secret store, never commit it. Set it only when the configured value is non-blank, and trim it: an empty or whitespace string is treated as an invalid key and does not fall back to the key file (on Node 2.2.1 the engine then fails to start; on Java 2.2.1 the servlet's `init()` throws `The license key is missing or has expired.` and, with `setLoadOnStartup(1)`, Spring Boot does not start).
 
 If a NuGet install still shows the watermark after licensing, clear the Reveal packages from the NuGet cache and reinstall.
