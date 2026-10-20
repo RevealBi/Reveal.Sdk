@@ -58,7 +58,7 @@ If you start a server yourself rather than through `--start`, stop only that pro
 | Connect their database or API, keep connection details off the client | [data-sources.md](references/data-sources.md) |
 | Pass the signed-in user, tenant or role to the server; row-level security; credentials per user | [user-context-security.md](references/user-context-security.md) |
 | Store dashboards somewhere other than a folder (database, blob storage, per-user), Save / Save As, create new, editing permissions | [dashboards.md](references/dashboards.md) |
-| Generate, modify or bulk-edit `.rdash` files in code (templates, per-tenant dashboards, dashboards built from a spec or AI output, migrations) | The `reveal-dashboard-authoring` skill (Reveal DOM: `@revealbi/dom`, `Reveal.Sdk.Dom`); summary in [dashboards.md](references/dashboards.md#creating-and-changing-dashboards-in-code) |
+| Generate, modify or bulk-edit `.rdash` files in code (templates, per-tenant dashboards, dashboards built from a spec or AI output, migrations), including a new dashboard on a JSON file the app serves | The `reveal-dashboard-authoring` skill (Reveal DOM: `@revealbi/dom`, `Reveal.Sdk.Dom`; for the JSON file, its "A dashboard on the app's own JSON file"); summary in [dashboards.md](references/dashboards.md#creating-and-changing-dashboards-in-code) |
 | Match their look: themes, fonts, which menus and buttons show | [client.md](references/client.md) |
 | License, export (PDF/Image/PowerPoint), size limits, caching, logging, CORS and hosting for production | [production.md](references/production.md) |
 

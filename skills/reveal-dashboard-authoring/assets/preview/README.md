@@ -46,7 +46,7 @@ This matters because a `.rdash` names the hosts and files the engine opens. Keep
 | --- | --- | --- |
 | `sales` | `sample-data/sales.json` (439 orders, Jan 2025 to Sep 2026) | `OrderId` number, `OrderDate` date, `Region`, `Product`, `Category` text, `Quantity`, `Revenue` number |
 
-To preview a dashboard over your own data, add the JSON file to `sample-data/` and its item id to `SAMPLE_DATA`. `test-providers.js` (`npm test`) checks that the sample item is served and that other REST, image (including URLs that leave `sample-data/`), SQLite, DuckDB, database-host and local-file locations are blocked; run it after changing `server.js`.
+To preview a dashboard over your own data, add the JSON file to `sample-data/` and its item id to `SAMPLE_DATA`, and build the item with `jsonFileItem` (dom-ts `src/lib/sample-data.ts`). `test-providers.js` (`npm test`) checks that the sample item is served and that other REST, image (including URLs that leave `sample-data/`), SQLite, DuckDB, database-host and local-file locations are blocked; run it after changing `server.js`.
 
 Widgets bound to a real database (SQL Server, Postgres, ...) don't load data here, which is expected (exit code 3). The check still proves that the dashboard loads, its title and filters appear, and nothing else fails. Check those widgets in the app itself.
 
@@ -60,6 +60,7 @@ Widgets bound to a real database (SQL Server, Postgres, ...) don't load data her
 | `page error: Cannot read properties of null (reading 'valueType')` | A gauge with only one bound set (set both `minimum` and `maximum`). |
 | `something is still moving after the wait` | A widget still loading: stuck on its spinner with no error anywhere, or waiting for a slow or unreachable data source. |
 | `Field not found: X` | A KPI date or pivot row binds a field the data doesn't have. |
+| `The data source '...' is of an unknown type ('REST')` | A REST item without its JSON wrapper: built with the no-argument `RestDataSourceItem` constructor, or `item.dataSource` assigned afterwards. Use `jsonFileItem` or the three-argument constructor; the guard reports it. |
 | `The data source '...' is of an unknown type ('AMAZON_S3')` / `('WEBSERVICE')` | A connector the Node engine doesn't register, or a TypeScript web service item (not usable in 0.3.0). |
 | `Only tabular data spec can be used with Grid Viz` / `XmlaDimensionElement expected` | An Analysis Services (XMLA) item: the DOM can't bind cube members. |
 | `Object reference not set to an instance of an object.` | An incomplete item (a TypeScript Google Sheets item has no spreadsheet id). |

@@ -6,6 +6,7 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "create": "tsx src/examples/create-sales-dashboard.ts",
+    "app-json": "tsx src/examples/app-json-dashboard.ts",
     "edit": "tsx src/examples/edit-dashboard.ts",
     "sql": "tsx src/examples/sql-server-dashboard.ts",
     "inspect": "tsx src/tools/inspect.ts",

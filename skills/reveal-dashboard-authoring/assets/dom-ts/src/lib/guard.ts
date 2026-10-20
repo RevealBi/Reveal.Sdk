@@ -8,8 +8,9 @@
 //
 // Checked: bound field names (values, labels, columns, dates, dashboard filter connections),
 // each dashboard data filter's own field, date fields bound as plain values, that every
-// binding's target filter exists, and dashboard link parameters. Not checked: text boxes and
-// Analysis Services (XMLA) widgets declare no fields; render those.
+// binding's target filter exists, dashboard link parameters, and REST items read without
+// their JSON wrapper. Not checked: text boxes and Analysis Services (XMLA) widgets declare no
+// fields; render those.
 
 type Json = Record<string, any>;
 
@@ -40,8 +41,18 @@ export function findBindingProblems(dashboardJson: object): string[] {
   const problems: string[] = [];
   const filterIds = new Set(list(d.GlobalFilters).map(f => f.Id));
   const dateFilters = list(d.GlobalFilters).filter(f => String(f._type).startsWith("Date")).length;
+  const providers = new Map(list(d.DataSources).map(s => [s.Id, s.Provider]));
   for (const w of list(d.Widgets)) {
     const dataSpec = w.DataSpec as Json | undefined;
+    // A REST item gives rows only inside its JSON (or CSV, Excel) wrapper. The no-argument
+    // RestDataSourceItem constructor, or assigning item.dataSource afterwards, puts the widget
+    // straight on the REST data source, and Reveal 2.2.1 fails it: "unknown type ('REST')".
+    const item = dataSpec?.DataSourceItem as Json | undefined;
+    if (item && providers.get(item.DataSourceId) === "REST") {
+      problems.push(`"${w.Title}" reads item "${item.Id}" straight from REST data source "${item.DataSourceId}", without its JSON wrapper, ` +
+        `so Reveal fails it with "unknown type ('REST')". Build the item with new RestDataSourceItem(title, url, dataSource) ` +
+        `(or jsonFileItem in sample-data.ts) and don't assign item.dataSource afterwards.`);
+    }
     // Binding targets don't depend on fields. TypeScript binds every date filter connection to "_date",
     // which a loaded dashboard's date filters (GUID ids) and an imported visualization's target don't
     // have. Rendered (two GUID date filters): the widget shows unfiltered data, no error.
