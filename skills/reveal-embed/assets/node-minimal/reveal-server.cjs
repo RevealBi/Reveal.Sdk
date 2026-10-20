@@ -2,21 +2,25 @@
 //
 //     import { mountReveal } from "./reveal-server.cjs";          // ES modules
 //     const { mountReveal } = require("./reveal-server.cjs");    // CommonJS
-//     mountReveal(app, { port: PORT });
+//     mountReveal(app, { port: PORT });                          // app with login
+//     mountReveal(app, { port: PORT, allowAnonymous: true });    // app without login
 //
 // Call it after the app's authentication middleware and before express.json() and the app's
 // own routes, static files and dev middleware (Vite, webpack). It adds:
-//   /reveal-api/   the Reveal endpoints, behind a guard that rejects unauthenticated requests.
-//                  The page calls RevealSdkSettings.setBaseUrl(location.origin + "/reveal-api/").
+//   /reveal-api/   the Reveal endpoints. The page calls
+//                  RevealSdkSettings.setBaseUrl(location.origin + "/reveal-api/").
 //   /sample-data/  the data of the sample dashboard dashboards/Sales.rdash.
 //
-// Local run without the app's authentication: start the process with --anonymous-demo and put
-// the flag in the dev script, so the plain `npm run dev` works. Refused when NODE_ENV=production.
+// Who may open dashboards is decided here, in code. A request the app's authentication did not
+// identify (no request.user) gets 401, unless allowAnonymous is true: for an app without login,
+// whose pages are all public anyway. Remove it once the app has login.
+// Dashboards are view only: saves are refused unless allowEditing is true. Each user then saves
+// into a private folder (with allowAnonymous, every visitor shares one).
 //
-// Everything is denied by default. Change only what the app needs: its authentication
-// (request.user), its data sources (isMapped and the item rules) and dashboard storage.
-// dashboards/ and sample-data/ resolve against the working directory. License:
-// ~/.revealbi-sdk/license.key or REVEAL_LICENSE (without either the engine fails to start).
+// Everything else is denied by default. Change only what the app needs: its data sources
+// (isMapped and the item rules) and dashboard storage. dashboards/ and sample-data/ resolve
+// against the working directory. License: ~/.revealbi-sdk/license.key or REVEAL_LICENSE
+// (without either the engine fails to start).
 
 const crypto = require("crypto");
 const fs = require("fs");
@@ -27,14 +31,15 @@ const reveal = require("reveal-sdk-node");
 
 function mountReveal(app, {
     port,
+    allowAnonymous = false,
+    allowEditing = false,
     prefix = "/reveal-api/",
     dashboardsDir = path.join(process.cwd(), "dashboards"),
     sampleDataDir = path.join(process.cwd(), "sample-data"),
-    anonymousDemo = process.argv.includes("--anonymous-demo"),
 } = {}) {
     if (!port) throw new Error("mountReveal needs the port the app listens on (for the sample data URL)");
-    if (anonymousDemo && process.env.NODE_ENV === "production") {
-        throw new Error("--anonymous-demo is for local runs only; refusing to start with NODE_ENV=production");
+    if (allowAnonymous && allowEditing) {
+        console.warn("Reveal: allowAnonymous with allowEditing lets every visitor change the saved dashboards. Add login before anyone else can reach the app.");
     }
 
     // The sample dashboard's data. Its `sales` item names a placeholder URL; the item provider
@@ -58,7 +63,7 @@ function mountReveal(app, {
             }
             return new reveal.RVUserContext(String(id), props);
         }
-        if (!anonymousDemo) {
+        if (!allowAnonymous) {
             throw new Error("Unauthenticated request");
         }
         return new reveal.RVUserContext("anonymous", props);
@@ -133,12 +138,12 @@ function mountReveal(app, {
     };
 
     // Both dashboard options are supplied, so loading and saving go through the same validated,
-    // authorized path (the built-in ones are demo defaults that let any caller overwrite any
-    // dashboard). The id must be letters, digits, dash or underscore.
-    // dashboards/ holds shared, read-only dashboards, and every user saves into a private
-    // folder keyed by their id. A user can read the shared ones and
-    // their own, and can never write to (or read) anyone else's. Replace with the app's own
-    // storage and rules (tenants, sharing) when it needs them.
+    // authorized path: the built-in ones let any caller overwrite any dashboard, and save ids
+    // like "../name" outside the folder. The id must be letters, digits, dash or underscore.
+    // dashboards/ holds the shared dashboards and is never written. With allowEditing, every
+    // user saves into a private folder keyed by their id: they read the shared ones and their
+    // own, and never anyone else's. Replace with the app's own storage and rules (tenants,
+    // sharing) when it needs them.
     const VALID_ID = /^[A-Za-z0-9_-]{1,100}$/;
 
     // Fail closed: the user context can be null (system calls, connection verification);
@@ -156,7 +161,7 @@ function mountReveal(app, {
     const dashboardProvider = async (userContext, dashboardId) => {
         if (!VALID_ID.test(dashboardId)) return null;
         const file = `${dashboardId}.rdash`;
-        for (const dir of [userFolder(userContext), dashboardsDir]) {
+        for (const dir of allowEditing ? [userFolder(userContext), dashboardsDir] : [dashboardsDir]) {
             const candidate = path.join(dir, file);
             if (fs.existsSync(candidate)) return fs.createReadStream(candidate);
         }
@@ -164,6 +169,8 @@ function mountReveal(app, {
     };
 
     const dashboardStorageProvider = async (userContext, dashboardId, stream) => {
+        // View only: the page hides editing (canEdit = false); this closes the endpoint too.
+        if (!allowEditing) throw new Error("Saving dashboards is turned off");
         if (!VALID_ID.test(dashboardId)) throw new Error("Invalid dashboard id");
         const dir = userFolder(userContext);
         fs.mkdirSync(dir, { recursive: true });
@@ -195,13 +202,21 @@ function mountReveal(app, {
     }
 
     // Fail closed: authentication middleware only identifies the caller; this rejects anyone
-    // it did not identify.
-    const requireAuth = (req, res, next) => (req.user || anonymousDemo ? next() : res.sendStatus(401));
+    // it did not identify, unless anonymous viewing is allowed.
+    let hinted = false;
+    const requireUser = (req, res, next) => {
+        if (req.user || allowAnonymous) return next();
+        if (!hinted) {
+            hinted = true;
+            console.warn("Reveal: 401 for a request without request.user. With login, sign in first; an app without login needs mountReveal(app, { port, allowAnonymous: true }).");
+        }
+        res.sendStatus(401);
+    };
 
     // Under a prefix, so the app's own pages and routes keep working (mounted at "/", Reveal
     // answers every request and everything registered after it returns 404). Above any body
     // parser (express.json() and friends).
-    app.use(prefix, requireAuth, reveal(revealOptions));
+    app.use(prefix, requireUser, reveal(revealOptions));
 }
 
 module.exports = { mountReveal };

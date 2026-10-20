@@ -54,6 +54,8 @@ app.listen(5111);
 
 `userContextProvider` only derives the context. Make it throw when `request.user` has no stable id (missing or blank) rather than mapping to a shared "anonymous" user (see [assets/node-minimal](../assets/node-minimal)).
 
+**An app without login** lets anyone who can open it view its dashboards. Decide that in the server code, never with a start argument or variable that only your own run has (user-context-security.md, "An app without login"): drop `requireAuth`, return `new reveal.RVUserContext("anonymous", props)` when there is no `request.user`, and keep dashboards view only (Dashboards, below). With node-minimal's module: `mountReveal(app, { port, allowAnonymous: true })`.
+
 **License on Node:** with `license` omitted, the engine reads `~/.revealbi-sdk/license.key` of the account running the process. There is no keyless trial on 2.2.1: with no key at all, it logs `The license key is missing or has expired. Engine failed to start` and the process exits seconds after start (verified on Linux; a fresh container or CI runner has no key file). A `license` option that is present but empty makes 2.2.1 log `The license key is missing or has expired. Engine failed to start` and throw `Engine exited abnormally`, which can take down the whole Node process. Do not add an empty `REVEAL_LICENSE=` to a real `.env`; a commented line in `.env.example` is fine (verified on 2.2.1).
 
 TypeScript compiled to CommonJS (`"module": "commonjs"`, no `"type": "module"`; `npm install -D typescript @types/express @types/cors`):
@@ -149,7 +151,15 @@ await app.listen(port);
 
 ## Dashboards
 
-By default dashboards load from a `dashboards` folder (lower case) in the **working directory** of the process, so start the server from the project root. **Treat the built-in loader and saver as demo defaults; do not rely on them in a real app.** Supply **both** a `dashboardProvider` and a `dashboardStorageProvider` that validate the id (letters, digits, dash, underscore; 2.2.1 hands `…/DashboardFile/..%5Cname` to the provider as `..\name`, a path separator on Windows) **and decide who may read or write which dashboard** ([assets/node-minimal](../assets/node-minimal) does both: shared dashboards are read-only, each user saves into their own folder):
+By default dashboards load from a `dashboards` folder (lower case) in the **working directory** of the process, so start the server from the project root. **Treat the built-in loader and saver as demo defaults; do not rely on them in a real app.** The built-in saver accepts any save, and on 2.2.1 writes one with the id `../name` or `..\name` outside the folder (verified on Windows). Supply **both** a `dashboardProvider` and a `dashboardStorageProvider` that validate the id (letters, digits, dash, underscore; 2.2.1 hands `…/DashboardFile/..%5Cname` to the provider as `..\name`, a path separator on Windows) **and decide who may read or write which dashboard**.
+
+View only, the default unless users edit dashboards: refuse every save. The save answers 500 and the process keeps running (verified on 2.2.1); `canEdit = false` on the client only hides the button.
+
+```js
+const dashboardStorageProvider = async () => { throw new Error("Saving dashboards is turned off"); };
+```
+
+With editing, save per user ([assets/node-minimal](../assets/node-minimal) does both, switched by `allowEditing`: shared dashboards are read-only, each user saves into their own folder):
 
 ```js
 const crypto = require("crypto");

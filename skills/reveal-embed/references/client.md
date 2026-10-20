@@ -25,6 +25,7 @@ revealView.dashboard = dashboard;
 - Call `setBaseUrl`, the headers provider and other global settings once at app startup (e.g. `main.ts`), before any request, not per component. Include any mount prefix (`/reveal-api/`). For cookie auth across origins, set `RevealSdkSettings.requestWithCredentialsFlag = true`.
 - **The host element must have a height.** A `div` with no height renders nothing and raises no error. In framework templates the root element often has only `min-height` (Vite's React `#root` and Vue `#app`), so `height: 100%` resolves to 0: size `html, body, #root` (or `#app`) with `height: 100%`, or give the host a fixed height. If the view is blank, check `element.getBoundingClientRect().height`.
 - Handle a rejected `loadDashboard` (401, 404, CORS): otherwise the area stays blank with only an unhandled rejection in the console.
+- View only unless the app lets users edit: `revealView.canEdit = false` before assigning `dashboard`, and refuse saves on the server too (dashboards.md).
 - `RevealView` has no `dispose()` in 2.2.1; there is nothing to call on unmount.
 - Settings that are global (`RevealSdkSettings.theme`, `betaFeatures`, `maxCellsRestriction`, headers provider) must be set **before** the `RevealView` is created (a theme can also be assigned later; see Theming).
 - Set `RevealView` properties and event handlers before assigning `dashboard` where possible (exception: `canAddDashboardFilter`/`canAddDateFilter`, see Controlling the UI).

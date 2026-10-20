@@ -3,8 +3,7 @@
   "private": true,
   "main": "main.js",
   "scripts": {
-    "start": "node main.js",
-    "demo": "node main.js --anonymous-demo"
+    "start": "node main.js"
   },
   "dependencies": {
     "cors": "^2.8.5",

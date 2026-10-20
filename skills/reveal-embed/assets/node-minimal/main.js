@@ -1,19 +1,22 @@
 // Minimal Express host for the Reveal SDK. All Reveal wiring is in reveal-server.cjs (the Reveal
 // endpoints under /reveal-api/, default-deny providers, validated dashboard storage and the
-// sample data); this file is the app around it, and the page in ./public opens the sample
-// dashboard (dashboards/Sales.rdash).
+// sample data); this file is the app around it, and the page in ./public shows the sample
+// dashboard (dashboards/Sales.rdash), view only.
 //
-//     npm install && npm run demo    ->  http://localhost:5111/
+//     npm install && npm start    ->  http://localhost:5111/
 //
-// `npm start` (node main.js) requires an authenticated user on every Reveal request and
-// answers 401 until the app's real authentication is added below. `npm run demo` passes
-// --anonymous-demo: anonymous access for a local first run, listening on localhost only
-// (set HOST=0.0.0.0 to reach it from outside a container). It refuses to start that way
-// when NODE_ENV=production.
+// This sample has no login, so it allows anonymous viewing (allowAnonymous below) and listens
+// on localhost only (HOST=0.0.0.0 to reach it from outside a container). Once the app has
+// login, add it below and remove allowAnonymous: every Reveal request then needs a signed-in
+// user.
 //
 // Adding Reveal to an existing app: copy reveal-server.cjs, dashboards/Sales.rdash and
 // sample-data/sales.json, and call mountReveal the way this file does, before express.json()
 // and the app's own routes, static files and dev middleware.
+//
+// The sample dashboard's "sales" item names a placeholder URL; reveal-server.cjs maps it to
+// sample-data/sales.json, served by this app. Delete the dashboard, sample-data/ and the
+// SAMPLE_DATA rule together once the app has its own data.
 //
 // Start it from this folder: ./dashboards and ./sample-data resolve against the working
 // directory. License: ~/.revealbi-sdk/license.key or REVEAL_LICENSE (without either, the
@@ -24,8 +27,8 @@ const express = require("express");
 const cors = require("cors");
 const { mountReveal } = require("./reveal-server.cjs");
 
-const anonymousDemo = process.argv.includes("--anonymous-demo");
 const port = Number(process.env.PORT) || 5111;
+const host = process.env.HOST || "127.0.0.1";
 
 const app = express();
 
@@ -38,16 +41,11 @@ if (process.env.CLIENT_ORIGIN) {
 
 app.use(express.static(path.join(__dirname, "public")));
 
-// Add the app's real authentication here (passport.authenticate(...), express-jwt) so it
+// The app's real authentication goes here (passport.authenticate(...), express-jwt), so it
 // sets request.user. It must run before Reveal.
 // app.use(authenticate);
 
 // Reveal under /reveal-api/ and the sample data under /sample-data/.
-mountReveal(app, { port });
+mountReveal(app, { port, allowAnonymous: true });
 
-if (anonymousDemo) {
-    const host = process.env.HOST || "127.0.0.1";
-    app.listen(port, host, () => console.log(`Anonymous demo on http://localhost:${port}/ (listening on ${host})`));
-} else {
-    app.listen(port, () => console.log(`Reveal server on port ${port}`));
-}
+app.listen(port, host, () => console.log(`Reveal sample on http://localhost:${port}/ (listening on ${host})`));

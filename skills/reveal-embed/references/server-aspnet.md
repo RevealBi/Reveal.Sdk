@@ -52,7 +52,7 @@ app.UseAuthorization();    // enforces the fallback policy above
 app.MapControllers();
 ```
 
-Provider registrations are optional for the SDK, but **always register a dashboard provider that validates the id and authorizes the user**. Without one, Reveal uses its built-in provider on a `Dashboards` folder in the working directory, which lets any caller who can reach the endpoint overwrite any dashboard; treat it as a demo default. Start from the provider in [assets/aspnet-minimal](../assets/aspnet-minimal), which validates the id and saves per user. The data source provider needs a default-deny branch too (data-sources.md): returning `null` runs the item as the client sent it; throwing fails the widget, but the exception message reaches the browser, so throw a generic one.
+Provider registrations are optional for the SDK, but **always register a dashboard provider that validates the id and authorizes the user**. Without one, Reveal uses its built-in provider on a `Dashboards` folder in the working directory, which lets any caller who can reach the endpoint overwrite any dashboard; treat it as a demo default. Start from the provider in [assets/aspnet-minimal](../assets/aspnet-minimal), which validates the id and refuses saves until `allowEditing` is set, then saves per user. The data source provider needs a default-deny branch too (data-sources.md): returning `null` runs the item as the client sent it; throwing fails the widget, but the exception message reaches the browser, so throw a generic one.
 
 Make sure the shared `Dashboards/**` (and any local data files) are copied to the output and publish folders, but not the per-user folder the dashboard provider writes at run time:
 

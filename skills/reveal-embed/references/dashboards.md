@@ -9,7 +9,7 @@ A dashboard is an `.rdash` file: a zip of JSON describing the visualizations, fi
 | Server | Default location |
 | --- | --- |
 | ASP.NET | `Dashboards/` under the working directory. Load and save both work, but the default provider lets **any authenticated user read and overwrite every dashboard**; treat it as a demo default. Always register a provider that validates the id (letters, digits, dash, underscore) and authorizes per user or tenant (assets/aspnet-minimal has one); `canEdit = false` alone does not close the save endpoint. |
-| Node.js | `dashboards/` under the working directory. Treat the built-in loader and saver as demo defaults. Always supply **both** `dashboardProvider` and `dashboardStorageProvider`, validating the id (letters, digits, dash, underscore) and authorizing per user or tenant, so loading and saving go through the same validated, authorized path. |
+| Node.js | `dashboards/` under the working directory. Treat the built-in loader and saver as demo defaults: the saver accepts any save, and on 2.2.1 writes one with the id `../name` outside the folder (verified on Windows). Always supply **both** `dashboardProvider` and `dashboardStorageProvider`, validating the id (letters, digits, dash, underscore) and authorizing per user or tenant, so loading and saving go through the same validated, authorized path. |
 | Java | `~/dashboards` of the account running the server (the built-in `RVDashboardProvider()`), used whenever no provider is set. Any caller can overwrite any dashboard; treat it as a demo default. Always set a provider that validates the id (letters, digits, dash, underscore) and authorizes per user or tenant: server-java.md or assets/java-minimal. |
 
 The client loads by id, which is the file name without `.rdash`:
@@ -18,6 +18,15 @@ The client loads by id, which is the file name without `.rdash`:
 const dashboard = await RVDashboard.loadDashboard("Sales");
 revealView.dashboard = dashboard;
 ```
+
+## View only (the default)
+
+Unless users are meant to create or change dashboards, keep them view only, on both sides:
+
+- Client: `revealView.canEdit = false`, before assigning `dashboard`. It only hides the Edit button.
+- Server: refuse every save. On ASP.NET and Java a custom provider replaces the default for loading and saving, so make `SaveDashboardAsync` / `saveDashboard` throw. On Node supply a `dashboardStorageProvider` that throws, `async () => { throw new Error("Saving dashboards is turned off"); }`: the save answers 500 and the process keeps running (verified on 2.2.1). Leaving the Node option out is not view only: the built-in saver takes the save.
+
+The starters do both and turn editing on with one setting (`allowEditing`, `reveal.allow-editing`), which also sends each user's saves to a private folder.
 
 ## Custom dashboard provider
 

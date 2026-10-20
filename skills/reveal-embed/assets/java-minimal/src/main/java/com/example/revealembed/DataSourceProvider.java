@@ -2,6 +2,7 @@ package com.example.revealembed;
 
 import io.revealbi.core.IRVUserContext;
 import io.revealbi.core.data.*;
+import java.util.Map;
 
 /**
  * Fills in connection details on the server so the browser only ever sees data source ids
@@ -18,6 +19,16 @@ public class DataSourceProvider implements IRVDataSourceProvider {
     private static final String BLOCKED_HOST = "blocked.invalid";
     private static final String BLOCKED_FILE = "local:/blocked-by-server";
 
+    // The sample dashboard's REST items: item id -> file in static/sample-data. Whatever URL
+    // the dashboard names, the engine reads this app's own copy over loopback. Remove this and
+    // the sample rule below together with the sample.
+    private static final Map<String, String> SAMPLE_DATA = Map.of("sales", "sales.json");
+    private final int port;
+
+    public DataSourceProvider(int port) {
+        this.port = port;
+    }
+
     @Override
     public RVDashboardDataSource changeDataSource(IRVUserContext userContext, RVDashboardDataSource dataSource) {
         // Example for PostgreSQL (credentials go in an IRVAuthenticationProvider):
@@ -30,8 +41,11 @@ public class DataSourceProvider implements IRVDataSourceProvider {
         else if (dataSource instanceof RVODataDataSource odata) odata.setUrl(BLOCKED_URL);
         else if (dataSource instanceof RVSQLiteDataSource sqlite) sqlite.setDatabase(BLOCKED_FILE); // a file path
         else if (dataSource instanceof RVSqlBasedDataSource sql) sql.setHost(BLOCKED_HOST);
-        else if (dataSource instanceof RVLocalFileDataSource || dataSource instanceof RVInMemoryDataSource) {
-            // Location is on the item (local files) or defined by the server (in-memory).
+        else if (dataSource instanceof RVLocalFileDataSource || dataSource instanceof RVInMemoryDataSource
+                || dataSource instanceof RVJsonDataSource || dataSource instanceof RVExcelDataSource
+                || dataSource instanceof RVCsvDataSource) {
+            // Location is on the item (local files; JSON, Excel and CSV wrap the item that holds
+            // it) or defined by the server (in-memory).
         } else {
             throw new IllegalArgumentException("Data source type not allowed: " + dataSource.getProviderKey());
         }
@@ -50,7 +64,14 @@ public class DataSourceProvider implements IRVDataSourceProvider {
         //     pg.setCustomQueryParameters(new HashMap<>(Map.of("@tenantId", userContext.getProperty("TenantId"))));
         // }
 
-        if (item instanceof RVRESTDataSourceItem rest) rest.setUrl(BLOCKED_URL);
+        // String.valueOf: an item id can be null, and Map.of throws on a null key.
+        String sampleFile = item instanceof RVRESTDataSourceItem ? SAMPLE_DATA.get(String.valueOf(item.getId())) : null;
+        if (sampleFile != null) {
+            String url = "http://127.0.0.1:" + port + "/sample-data/" + sampleFile;
+            ((RVRESTDataSourceItem) item).setUrl(url);
+            if (item.getDataSource() instanceof RVRESTDataSource source) source.setUrl(url);
+        }
+        else if (item instanceof RVRESTDataSourceItem rest) rest.setUrl(BLOCKED_URL);
         else if (item instanceof RVWebResourceDataSourceItem web) web.setUrl(BLOCKED_URL);
         else if (item instanceof RVODataDataSourceItem odata) odata.setUrl(BLOCKED_URL);
         else if (item instanceof RVLocalFileDataSourceItem local) local.setUri(BLOCKED_FILE);

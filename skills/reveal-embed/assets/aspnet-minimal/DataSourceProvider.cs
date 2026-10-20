@@ -1,3 +1,5 @@
+using Microsoft.AspNetCore.Hosting.Server;
+using Microsoft.AspNetCore.Hosting.Server.Features;
 using Reveal.Sdk;
 using Reveal.Sdk.Data;
 using Reveal.Sdk.Data.OData;
@@ -19,8 +21,26 @@ public class DataSourceProvider : IRVDataSourceProvider
     private const string BlockedFile = "local:/blocked-by-server";
 
     private readonly IConfiguration _configuration;
+    private readonly IServer _server;
 
-    public DataSourceProvider(IConfiguration configuration) => _configuration = configuration;
+    public DataSourceProvider(IConfiguration configuration, IServer server)
+    {
+        _configuration = configuration;
+        _server = server;
+    }
+
+    // The sample dashboard's REST items: item id -> file in wwwroot/sample-data. Whatever URL
+    // the dashboard names, the engine reads this app's own copy over loopback. Remove this,
+    // SampleUrl and the "sales" case below together with the sample.
+    private static readonly Dictionary<string, string> SampleData = new() { ["sales"] = "sales.json" };
+
+    private string SampleUrl(string file)
+    {
+        var address = _server.Features.Get<IServerAddressesFeature>()?.Addresses
+            .FirstOrDefault(a => a.StartsWith("http://")) ?? throw new InvalidOperationException("The sample data needs an http:// address.");
+        var port = address.TrimEnd('/')[(address.TrimEnd('/').LastIndexOf(':') + 1)..];
+        return $"http://127.0.0.1:{port}/sample-data/{file}";
+    }
 
     public Task<RVDashboardDataSource> ChangeDataSourceAsync(IRVUserContext userContext, RVDashboardDataSource dataSource)
     {
@@ -66,6 +86,10 @@ public class DataSourceProvider : IRVDataSourceProvider
         switch (dataSourceItem)
         {
 #pragma warning disable CS0618 // Deprecated, but a request can still set it, so overwrite it too.
+            case RVRESTDataSourceItem sample when SampleData.TryGetValue(sample.Id ?? "", out var file):
+                sample.Url = SampleUrl(file);
+                if (sample.DataSource is RVRESTDataSource sampleSource) sampleSource.Url = sample.Url;
+                break;
             case RVRESTDataSourceItem rest: rest.Url = BlockedUrl; break;
 #pragma warning restore CS0618
             case RVWebResourceDataSourceItem web: web.Url = BlockedUrl; break;

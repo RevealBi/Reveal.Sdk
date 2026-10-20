@@ -10,9 +10,11 @@ Each of these looks like an SDK defect and is a setup cause. Match the symptom, 
 
 **Blank area, unhandled rejection in the console (`Unauthorized`, `Failed to fetch`).** `loadDashboard` failed (401, 404, CORS) and the code has no rejection handler. Handle it and show the error (see client.md).
 
+**It works when you run it, but the user's `npm run dev` gets 401, or listens on another host or port.** A setting that exists only in the command you ran (`npm run dev -- --some-flag`, `HOST=... npm run dev`) is not part of the project: teammates, IDE run buttons and CI start the app without it. Put it in the code or the project's configuration (for anonymous viewing, user-context-security.md, "An app without login"), and verify with `check-app.mjs --start "<their start command>"`, which starts the app the way they do.
+
 **CORS error in the console, or requests going to the wrong host.** The client and server are on different origins and either `setBaseUrl` is missing (requests go to the client's origin and 404) or the server has no CORS policy for the client's origin. If the server mounts Reveal under a prefix (`/reveal-api/`), the base URL must include it, with a trailing slash. Fix both sides.
 - With a dev server that has an SPA fallback (Vite, Angular CLI, webpack `historyApiFallback`), a missing `setBaseUrl` does not 404: the dev server answers with `index.html`, and `loadDashboard` fails with `Unexpected token '<', "<!doctype "... is not valid JSON`.
-- A CORS failure shows as `Failed to fetch` plus a `blocked by CORS policy` line in the console. If the CORS middleware is missing or runs after an auth guard, the preflight hits the guard and gets 401 (seen with node-minimal and no `CLIENT_ORIGIN`).
+- A CORS failure shows as `Failed to fetch` plus a `blocked by CORS policy` line in the console. If the CORS middleware is missing or runs after an auth guard, the preflight hits the guard and gets 401 (seen with node-minimal's guard, anonymous viewing off and no `CLIENT_ORIGIN`).
 
 **Java + Spring Security: the dashboard title shows, then every widget shows `{"status":403,"error":"Forbidden"}`.** Spring Security's CSRF protection rejects Reveal's POSTs (widget data, save); GETs pass, so a curl of the dashboard works. Send the CSRF token from the page (see server-java.md, "Spring Security CSRF").
 

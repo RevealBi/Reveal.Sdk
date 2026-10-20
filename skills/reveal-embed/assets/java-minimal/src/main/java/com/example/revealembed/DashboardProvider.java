@@ -15,18 +15,21 @@ import java.util.List;
 import java.util.regex.Pattern;
 
 /**
- * Dashboards in the shared folder are read-only. Every user saves into a private folder keyed
- * by a hash of their id: they load the shared dashboards and their own, and can never read or
- * overwrite another user's. The built-in RVDashboardProvider lets any caller overwrite any
- * dashboard. Replace with the app's own storage and rules (tenants, sharing) when needed.
+ * Dashboards in the shared folder are never written. Saves are refused unless
+ * reveal.allow-editing is true; then every user saves into a private folder keyed by a hash of
+ * their id: they load the shared dashboards and their own, and can never read or overwrite
+ * another user's. The built-in RVDashboardProvider lets any caller overwrite any dashboard.
+ * Replace with the app's own storage and rules (tenants, sharing) when needed.
  */
 public class DashboardProvider implements IRVDashboardProvider {
     // Matcher.matches() must match the whole input, so "id\n" is rejected (unlike .NET's $).
     private static final Pattern VALID_ID = Pattern.compile("[A-Za-z0-9_-]{1,100}");
     private final Path sharedDir;
+    private final boolean allowEditing;
 
-    public DashboardProvider(Path sharedDir) {
+    public DashboardProvider(Path sharedDir, boolean allowEditing) {
         this.sharedDir = sharedDir.toAbsolutePath().normalize();
+        this.allowEditing = allowEditing;
     }
 
     private Path userDir(IRVUserContext userContext) {
@@ -58,7 +61,7 @@ public class DashboardProvider implements IRVDashboardProvider {
     @Override
     public InputStream getDashboard(IRVUserContext userContext, String dashboardId) throws IOException {
         requireValidId(dashboardId);
-        for (Path dir : List.of(userDir(userContext), sharedDir)) {
+        for (Path dir : allowEditing ? List.of(userDir(userContext), sharedDir) : List.of(sharedDir)) {
             Path file = dir.resolve(dashboardId + ".rdash");
             if (Files.isRegularFile(file)) return Files.newInputStream(file);
         }
@@ -67,6 +70,8 @@ public class DashboardProvider implements IRVDashboardProvider {
 
     @Override
     public void saveDashboard(IRVUserContext userContext, String dashboardId, InputStream dashboard) throws IOException {
+        // View only: the page hides editing (canEdit = false); this closes the endpoint too.
+        if (!allowEditing) throw new IllegalStateException("Saving dashboards is turned off");
         requireValidId(dashboardId);
         Path dir = userDir(userContext);
         Files.createDirectories(dir);

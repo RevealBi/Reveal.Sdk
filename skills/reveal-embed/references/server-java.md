@@ -35,7 +35,7 @@ If the app runs on Jetty, its version can conflict with the Jetty Reveal uses in
 
 Register `RevealEngineServlet` as a servlet bean. Packages are `io.revealbi.core.*` and `io.revealbi.servlet.*` from 2.0 onwards (1.x used `com.infragistics.reveal.sdk.*`).
 
-[assets/java-minimal](../assets/java-minimal) is a tested Spring Boot 3 + Spring Security starter with all of the pieces below (per-user dashboards, default-deny data sources, CSRF, loopback-only demo mode). The snippet below compiles against 2.2.1 together with the `DashboardProvider` and `DataSourceProvider` classes further down.
+[assets/java-minimal](../assets/java-minimal) is a tested Spring Boot 3 + Spring Security starter with all of the pieces below (view-only dashboards with per-user saves behind `reveal.allow-editing`, default-deny data sources, CSRF, anonymous viewing set in `application.properties` for an app without login). The snippet below compiles against 2.2.1 together with the `DashboardProvider` and `DataSourceProvider` classes further down.
 
 ```java
 import io.revealbi.core.RVUserContext;
@@ -264,7 +264,9 @@ public class DataSourceProvider implements IRVDataSourceProvider {
         else if (ds instanceof RVODataDataSource odata) odata.setUrl(BLOCKED_URL);
         else if (ds instanceof RVSQLiteDataSource sqlite) sqlite.setDatabase(BLOCKED_FILE);
         else if (ds instanceof RVSqlBasedDataSource sql) sql.setHost(BLOCKED_HOST);
-        else if (!(ds instanceof RVLocalFileDataSource || ds instanceof RVInMemoryDataSource))
+        // JSON, Excel and CSV only describe the format: the location is on the item they wrap.
+        else if (!(ds instanceof RVLocalFileDataSource || ds instanceof RVInMemoryDataSource
+                || ds instanceof RVJsonDataSource || ds instanceof RVExcelDataSource || ds instanceof RVCsvDataSource))
             throw new IllegalArgumentException("Data source type not allowed: " + ds.getProviderKey());
         return ds;
     }

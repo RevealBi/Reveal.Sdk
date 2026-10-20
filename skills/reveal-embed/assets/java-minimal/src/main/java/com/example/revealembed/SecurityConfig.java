@@ -21,17 +21,19 @@ public class SecurityConfig {
 
     @Bean
     SecurityFilterChain securityFilterChain(HttpSecurity http,
-            @Value("${reveal.client-origin:}") String clientOrigin) throws Exception {
+            @Value("${reveal.client-origin:}") String clientOrigin,
+            @Value("${reveal.allow-anonymous:false}") boolean allowAnonymous) throws Exception {
         http.authorizeHttpRequests(a -> {
-            if (!RevealEmbedApplication.anonymousDemo) {
+            if (!allowAnonymous) {
                 // Reading the principal in UserContextProvider does not reject anyone; this does.
                 a.requestMatchers("/reveal-api/**").authenticated();
             }
             a.anyRequest().permitAll(); // the page itself stays public
         });
 
-        // Replace with the app's real scheme, e.g. .oauth2ResourceServer(o -> o.jwt(...)) or
-        // .formLogin(...). Until then nobody is authenticated and Reveal requests get 401.
+        // Add the app's real scheme, e.g. .oauth2ResourceServer(o -> o.jwt(...)) or
+        // .formLogin(...). Until then nobody is authenticated, so with
+        // reveal.allow-anonymous=false every Reveal request gets 401.
         http.exceptionHandling(e -> e.authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)));
 
         // Spring Security rejects every POST without a CSRF token (403), and the Reveal client
