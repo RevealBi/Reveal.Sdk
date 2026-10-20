@@ -15,6 +15,7 @@ using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.Options;
 using Reveal.Sdk;
+using Reveal.Sdk.Data;   // RegisterXxx() connector extensions live here
 
 var anonymousDemo = args.Contains("--anonymous-demo");
 
@@ -63,6 +64,7 @@ builder.Services.AddControllers().AddReveal(reveal =>
     // reveal.DataSources.RegisterMicrosoftSqlServer();
 
     reveal.AddUserContextProvider<UserContextProvider>();
+    builder.Services.AddSingleton(new RevealDemoMode(anonymousDemo));
     reveal.AddDataSourceProvider<DataSourceProvider>();
     reveal.AddDashboardProvider<DashboardProvider>();
 });
@@ -91,6 +93,9 @@ app.UseAuthorization();
 app.MapControllers();
 
 app.Run();
+
+/// <summary>Whether the app runs with --anonymous-demo; read by UserContextProvider.</summary>
+public sealed record RevealDemoMode(bool Enabled);
 
 // Stands in for the app's real scheme: identifies nobody, so protected requests get 401.
 // Delete it once real authentication is configured.

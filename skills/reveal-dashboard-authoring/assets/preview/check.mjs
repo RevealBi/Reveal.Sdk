@@ -1,10 +1,12 @@
 // Opens a dashboard in headless Chrome or Edge against the running preview server, saves a
 // screenshot, and reports what rendered: the visible text, every Reveal request that failed
 // or returned an error, uncaught page errors, widgets that show no data, and widgets still
-// loading after the wait.
-// Exit code 0: every widget loaded data. 3: the only problems are "Authentication not
-// configured" from database connectors, which is expected here (check those in the app).
-// 1: anything else failed. 2: usage or browser problem.
+// loading after the wait. It scrolls the dashboard to its end first, because Reveal draws only
+// the widgets in view: an empty or crashing widget below the first screen is otherwise missed.
+// Exit code 0: every widget loaded data. 3: the only problems are database connectors the
+// preview refuses ("Authentication not configured", or a blocked database file), which is
+// expected here (check those in the app). 1: anything else failed, including any widget that
+// shows "There's no data to display". 2: usage, page-not-found or browser problem.
 //
 //     npm run check -- <dashboard id> [--wait 8]        (preview server must be running)
 //     npm run check -- --page client-side.html [id]      the in-browser DOM example
@@ -56,7 +58,17 @@ page.on("response", async r => {
   }
 });
 
-await page.goto(target);
+try {
+  const response = await page.goto(target);
+  if (response && response.status() >= 400) throw new Error(`HTTP ${response.status()}`);
+} catch (e) {
+  console.error(`page not found: ${target} (${String(e.message).split("\n")[0]})`);
+  if (/ERR_CONNECTION_REFUSED/.test(e.message)) {
+    console.error("The preview server is not running. Without a Reveal license key it exits seconds after start: read its console output.");
+  }
+  await browser.close();
+  process.exit(2);
+}
 await page.waitForFunction(() => document.body.dataset.loaded, null, { timeout: 30000 }).catch(() => {});
 const state = await page.evaluate(() => document.body.dataset.loaded);
 if (state !== "true") problems.push(state === "error" ? "page: the dashboard failed to load (see the visible text)" : "page: did not finish loading in 30 s");
@@ -69,26 +81,29 @@ const first = await page.screenshot({ path: shot, fullPage: true });
 // its loading spinner turning and raises no error, so two screenshots a moment apart must match.
 await page.waitForTimeout(1500);
 const second = await page.screenshot({ fullPage: true });
-if (!first.equals(second)) problems.push("page: something is still moving after the wait, usually a widget stuck on its loading spinner (it never drew)");
-const text = (await page.innerText("body")).replace(/\n{2,}/g, "\n").trim();
+if (!first.equals(second)) problems.push("page: something is still moving after the wait: a widget still loading, either stuck on its spinner (it never drew) or waiting for a slow or unreachable data source (try --wait 20)");
+// Reveal lays out about eight widgets per screen and renders the others only when they are scrolled into
+// view, so read the visible text while scrolling the dashboard to its end.
+const snapshots = [await page.innerText("body")];
+await page.mouse.move(700, 500);
+for (let i = 0; i < 15; i++) {
+  await page.mouse.wheel(0, 900);
+  await page.waitForTimeout(1500);
+  snapshots.push(await page.innerText("body"));
+}
+const text = ([...new Set(snapshots)].join("\n")).replace(/\n{2,}/g, "\n").trim();
 await browser.close();
 
 console.log(`Screenshot: ${shot}\n\nVisible text:\n${text.split("\n").map(l => `  ${l}`).join("\n")}\n`);
 const ignorable = p => /favicon|Failed to load resource: the server responded with a status of 404/.test(p);
 const real = [...new Set(problems)].filter(p => !ignorable(p));
-const databaseOnly = p => /Authentication not configured/.test(p);
-// Reveal reports an empty widget without any error. Each failed database widget is empty here anyway,
-// so only empties beyond the database failures count. The counts are not matched widget by widget
-// (the error carries a data source id, not a widget), so with database errors present an empty
-// REST widget can hide behind a database widget that did not render an empty state: the empty
-// widgets are listed below so they can be checked against the database ones.
-const empty = (text.match(/There's no data to display/g) ?? []).length;
-const dbFailures = problems.filter(p => p.startsWith("widget error:") && databaseOnly(p)).length;
-const unexplained = empty - dbFailures;
-if (unexplained > 0) real.push(`${unexplained} widget(s) show "There's no data to display": a binding, filter or data problem`);
-if (empty && real.some(databaseOnly)) {
-  console.log(`${empty} empty widget(s) and ${dbFailures} database failure(s): confirm each empty one is a database widget (they are matched by count, not by widget).`);
-}
+const databaseOnly = p => /Authentication not configured|blocked-by-preview/.test(p);
+// Reveal reports an empty widget without any error. A database widget that fails with
+// "Authentication not configured" shows no empty-state text (Reveal 2.2.1), so every empty widget
+// is a real problem, even next to database failures (subtracting them hid empty REST widgets).
+// Each snapshot is one screen and the same empty widget can appear in several: take the largest count.
+const empty = Math.max(...snapshots.map(t => (t.match(/There's no data to display/g) ?? []).length));
+if (empty) real.push(`${empty} widget(s) show "There's no data to display": a binding, filter or data problem`);
 if (real.length) {
   console.log(`Problems:\n${real.map(p => `  ${p}`).join("\n")}`);
   if (real.every(databaseOnly)) {

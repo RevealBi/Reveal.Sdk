@@ -18,7 +18,8 @@
 
         // Same origin as the server, so no RevealSdkSettings.setBaseUrl is needed.
         // Pass ?dashboard=<name> to load Dashboards/<name>.rdash; with none, an empty
-        // dashboard opens in the editor.
+        // dashboard opens in the editor. It offers no data sources until the server maps one
+        // and the page adds it in revealView.onDataSourcesRequested (references/data-sources.md).
         const name = new URLSearchParams(location.search).get("dashboard");
         const revealView = new RevealView("#revealView");
 
